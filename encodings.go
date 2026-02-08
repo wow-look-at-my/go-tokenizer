@@ -69,6 +69,7 @@ var Encodings = map[string]EncodingConfig{
 		Name:          "cl100k_base",
 		Pattern:       cl100kPattern,
 		SpecialTokens: cl100kSpecialTokens,
+		IsBinary:      true,
 	},
 	"p50k_base": {
 		Name:          "p50k_base",

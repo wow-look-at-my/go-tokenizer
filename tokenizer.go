@@ -81,22 +81,23 @@ func NewWithEncoding(name string) (Tokenizer, error) {
 	}
 
 	// Load embedded vocabulary
+	decoder, decErr := zstd.NewReader(nil)
+	if decErr != nil {
+		return nil, fmt.Errorf("creating zstd decoder: %w", decErr)
+	}
+	defer decoder.Close()
+
 	var vocabData []byte
 	switch name {
 	case "cl100k_base":
-		vocabData = embed.Cl100kBase
+		vocabData, decErr = decoder.DecodeAll(embed.Cl100kBaseZst, nil)
 	case "gemma":
-		decoder, err := zstd.NewReader(nil)
-		if err != nil {
-			return nil, fmt.Errorf("creating zstd decoder: %w", err)
-		}
-		vocabData, err = decoder.DecodeAll(embed.GemmaZst, nil)
-		decoder.Close()
-		if err != nil {
-			return nil, fmt.Errorf("decompressing gemma vocab: %w", err)
-		}
+		vocabData, decErr = decoder.DecodeAll(embed.GemmaZst, nil)
 	default:
 		return nil, fmt.Errorf("no embedded vocabulary for encoding: %s", name)
+	}
+	if decErr != nil {
+		return nil, fmt.Errorf("decompressing vocab: %w", decErr)
 	}
 
 	var vocab *Vocabulary

@@ -67,11 +67,26 @@ func LoadTiktoken(r io.Reader) (*Vocabulary, error) {
 	return v, nil
 }
 
+func readVarint(data []byte, pos int) (uint32, int) {
+	var val uint32
+	var shift uint
+	for {
+		b := data[pos]
+		pos++
+		val |= uint32(b&0x7F) << shift
+		if b < 0x80 {
+			break
+		}
+		shift += 7
+	}
+	return val, pos
+}
+
 // LoadBinary loads vocabulary from compact binary format
 // Format: "BPEV" magic, version, vocab section, merges section
 func LoadBinary(data []byte) (*Vocabulary, error) {
-	if len(data) < 8 || string(data[:4]) != "BPEV" {
-		return nil, fmt.Errorf("invalid binary vocab: bad magic")
+	if len(data) < 16 || string(data[:4]) != "BPEV" {
+		return nil, fmt.Errorf("invalid binary vocab: bad magic or too short")
 	}
 
 	v := NewVocabulary()
@@ -79,16 +94,51 @@ func LoadBinary(data []byte) (*Vocabulary, error) {
 
 	version := binary.LittleEndian.Uint32(data[pos:])
 	pos += 4
-	if version != 1 {
-		return nil, fmt.Errorf("unsupported version: %d", version)
-	}
 
-	// Read vocab
 	vocabSize := binary.LittleEndian.Uint32(data[pos:])
 	pos += 4
 	numGroups := binary.LittleEndian.Uint32(data[pos:])
 	pos += 4
 
+	switch version {
+	case 1:
+		pos = loadBinaryV1(data, pos, numGroups, v)
+	case 2:
+		pos = loadBinaryV2(data, pos, numGroups, v)
+	default:
+		return nil, fmt.Errorf("unsupported version: %d", version)
+	}
+
+	if len(v.encoder) != int(vocabSize) {
+		return nil, fmt.Errorf("vocab size mismatch: got %d, expected %d", len(v.encoder), vocabSize)
+	}
+
+	// Read merges
+	var numMerges uint32
+	if version == 1 {
+		numMerges = binary.LittleEndian.Uint32(data[pos:])
+		pos += 4
+		for i := uint32(0); i < numMerges; i++ {
+			id1 := binary.LittleEndian.Uint32(data[pos:])
+			pos += 4
+			id2 := binary.LittleEndian.Uint32(data[pos:])
+			pos += 4
+			v.merges[mergePairKey(int(id1), int(id2))] = int(i)
+		}
+	} else {
+		numMerges, pos = readVarint(data, pos)
+		for i := uint32(0); i < numMerges; i++ {
+			var id1, id2 uint32
+			id1, pos = readVarint(data, pos)
+			id2, pos = readVarint(data, pos)
+			v.merges[mergePairKey(int(id1), int(id2))] = int(i)
+		}
+	}
+
+	return v, nil
+}
+
+func loadBinaryV1(data []byte, pos int, numGroups uint32, v *Vocabulary) int {
 	for i := uint32(0); i < numGroups; i++ {
 		tokenLen := binary.LittleEndian.Uint16(data[pos:])
 		pos += 2
@@ -106,26 +156,31 @@ func LoadBinary(data []byte) (*Vocabulary, error) {
 			v.decoder[id] = token
 		}
 	}
+	return pos
+}
 
-	if len(v.encoder) != int(vocabSize) {
-		return nil, fmt.Errorf("vocab size mismatch: got %d, expected %d", len(v.encoder), vocabSize)
+func loadBinaryV2(data []byte, pos int, numGroups uint32, v *Vocabulary) int {
+	for i := uint32(0); i < numGroups; i++ {
+		tokenLen := binary.LittleEndian.Uint16(data[pos:])
+		pos += 2
+		var count uint32
+		count, pos = readVarint(data, pos)
+
+		var prevID uint32
+		for j := uint32(0); j < count; j++ {
+			token := make([]byte, tokenLen)
+			copy(token, data[pos:pos+int(tokenLen)])
+			pos += int(tokenLen)
+			var delta uint32
+			delta, pos = readVarint(data, pos)
+			id := prevID + delta
+			prevID = id
+
+			v.encoder[string(token)] = int(id)
+			v.decoder[int(id)] = token
+		}
 	}
-
-	// Read merges
-	numMerges := binary.LittleEndian.Uint32(data[pos:])
-	pos += 4
-
-	for i := uint32(0); i < numMerges; i++ {
-		id1 := binary.LittleEndian.Uint32(data[pos:])
-		pos += 4
-		id2 := binary.LittleEndian.Uint32(data[pos:])
-		pos += 4
-
-		key := mergePairKey(int(id1), int(id2))
-		v.merges[key] = int(i) // priority = index (lower = higher priority)
-	}
-
-	return v, nil
+	return pos
 }
 
 func mergePairKey(id1, id2 int) string {

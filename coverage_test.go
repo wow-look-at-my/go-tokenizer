@@ -206,7 +206,7 @@ func TestLoadTiktokenErrors(t *testing.T) {
 
 func TestLoadBinaryErrors(t *testing.T) {
 	// Test with invalid magic
-	_, err := LoadBinary([]byte("XXXX"))
+	_, err := LoadBinary([]byte("XXXX0000000000000000"))
 	if err == nil {
 		t.Error("Expected error for invalid magic")
 	}
@@ -214,6 +214,8 @@ func TestLoadBinaryErrors(t *testing.T) {
 	// Test with unsupported version
 	data := []byte("BPEV")
 	data = append(data, 99, 0, 0, 0) // version 99
+	data = append(data, 0, 0, 0, 0)  // vocab size
+	data = append(data, 0, 0, 0, 0)  // num groups
 	_, err = LoadBinary(data)
 	if err == nil {
 		t.Error("Expected error for unsupported version")
@@ -223,6 +225,34 @@ func TestLoadBinaryErrors(t *testing.T) {
 	_, err = LoadBinary([]byte("BPE"))
 	if err == nil {
 		t.Error("Expected error for too short data")
+	}
+}
+
+func TestLoadBinaryV1(t *testing.T) {
+	// Build a minimal v1 format binary
+	// Header: BPEV + version 1 + vocab size 1 + num groups 1
+	data := []byte("BPEV")
+	data = append(data, 1, 0, 0, 0) // version 1
+	data = append(data, 1, 0, 0, 0) // vocab size 1
+	data = append(data, 1, 0, 0, 0) // num groups 1
+	// Group: length 1, count 1
+	data = append(data, 1, 0)       // token length 1
+	data = append(data, 1, 0, 0, 0) // count 1
+	// Token: "a" with id 0
+	data = append(data, 'a')        // token
+	data = append(data, 0, 0, 0, 0) // id 0
+	// Merges: 0
+	data = append(data, 0, 0, 0, 0)
+
+	v, err := LoadBinary(data)
+	if err != nil {
+		t.Fatalf("LoadBinary v1 error: %v", err)
+	}
+	if v.Size() != 1 {
+		t.Errorf("Size() = %d, want 1", v.Size())
+	}
+	if id, ok := v.Encode([]byte("a")); !ok || id != 0 {
+		t.Errorf("Encode('a') = %d, %v, want 0, true", id, ok)
 	}
 }
 

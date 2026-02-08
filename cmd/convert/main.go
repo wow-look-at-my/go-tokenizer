@@ -1,35 +1,36 @@
 package main
 
 import (
-	"encoding/binary"
+	"bufio"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
-	"sort"
+	"path/filepath"
+	"strconv"
+	"strings"
 )
-
-type HFTokenizer struct {
-	Model struct {
-		Vocab  map[string]int `json:"vocab"`
-		Merges [][]string     `json:"merges"`
-	} `json:"model"`
-}
 
 func main() {
 	if len(os.Args) != 3 {
-		fmt.Fprintf(os.Stderr, "Usage: %s <input.json> <output.bin>\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s <input.json|input.tiktoken> <output.bin>\n", os.Args[0])
 		os.Exit(1)
 	}
 
-	data, err := os.ReadFile(os.Args[1])
+	var vocab *Vocab
+	var err error
+
+	switch filepath.Ext(os.Args[1]) {
+	case ".json":
+		vocab, err = loadHuggingFace(os.Args[1])
+	case ".tiktoken":
+		vocab, err = loadTiktoken(os.Args[1])
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown format: %s\n", os.Args[1])
+		os.Exit(1)
+	}
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading input: %v\n", err)
-		os.Exit(1)
-	}
-
-	var hf HFTokenizer
-	if err := json.Unmarshal(data, &hf); err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing JSON: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error loading: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -40,71 +41,69 @@ func main() {
 	}
 	defer out.Close()
 
-	fmt.Fprintf(os.Stderr, "Grouping %d tokens by length...\n", len(hf.Model.Vocab))
+	WriteBinary(vocab, out)
+}
 
-	// Group tokens by byte length
-	byLength := make(map[int][]struct {
-		token []byte
-		id    uint32
-	})
+func loadHuggingFace(path string) (*Vocab, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
 
+	var hf struct {
+		Model struct {
+			Vocab  map[string]int `json:"vocab"`
+			Merges [][]string     `json:"merges"`
+		} `json:"model"`
+	}
+	if err := json.Unmarshal(data, &hf); err != nil {
+		return nil, err
+	}
+
+	vocab := &Vocab{Tokens: make(map[string]uint32)}
 	for token, id := range hf.Model.Vocab {
-		b := []byte(token)
-		byLength[len(b)] = append(byLength[len(b)], struct {
-			token []byte
-			id    uint32
-		}{b, uint32(id)})
-	}
-	fmt.Fprintf(os.Stderr, "Found %d length groups\n", len(byLength))
-
-	// Sort lengths
-	lengths := make([]int, 0, len(byLength))
-	for l := range byLength {
-		lengths = append(lengths, l)
-	}
-	sort.Ints(lengths)
-
-	// Write header: "BPEV" magic + version
-	out.Write([]byte("BPEV"))
-	binary.Write(out, binary.LittleEndian, uint32(1)) // version
-
-	// Write vocab section
-	fmt.Fprintf(os.Stderr, "Writing vocab...\n")
-	binary.Write(out, binary.LittleEndian, uint32(len(hf.Model.Vocab))) // total vocab size
-	binary.Write(out, binary.LittleEndian, uint32(len(lengths)))        // number of length groups
-
-	for _, length := range lengths {
-		tokens := byLength[length]
-		// Sort by ID for consistency
-		sort.Slice(tokens, func(i, j int) bool {
-			return tokens[i].id < tokens[j].id
-		})
-
-		binary.Write(out, binary.LittleEndian, uint16(length))       // token length
-		binary.Write(out, binary.LittleEndian, uint32(len(tokens)))  // count
-
-		for _, t := range tokens {
-			out.Write(t.token)
-			binary.Write(out, binary.LittleEndian, t.id)
-		}
+		vocab.Tokens[token] = uint32(id)
 	}
 
-	// Write merges section
-	fmt.Fprintf(os.Stderr, "Writing %d merges...\n", len(hf.Model.Merges))
-	binary.Write(out, binary.LittleEndian, uint32(len(hf.Model.Merges)))
-	for i, merge := range hf.Model.Merges {
-		if i%100000 == 0 && i > 0 {
-			fmt.Fprintf(os.Stderr, "  %d/%d merges\n", i, len(hf.Model.Merges))
-		}
+	for _, merge := range hf.Model.Merges {
 		id1, ok1 := hf.Model.Vocab[merge[0]]
 		id2, ok2 := hf.Model.Vocab[merge[1]]
-		if !ok1 || !ok2 {
-			fmt.Fprintf(os.Stderr, "Warning: merge references unknown token\n")
-			continue
+		if ok1 && ok2 {
+			vocab.Merges = append(vocab.Merges, [2]uint32{uint32(id1), uint32(id2)})
 		}
-		binary.Write(out, binary.LittleEndian, uint32(id1))
-		binary.Write(out, binary.LittleEndian, uint32(id2))
 	}
 
-	fmt.Fprintf(os.Stderr, "Done! Wrote %d vocab entries, %d merges\n", len(hf.Model.Vocab), len(hf.Model.Merges))
+	return vocab, nil
+}
+
+func loadTiktoken(path string) (*Vocab, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	vocab := &Vocab{Tokens: make(map[string]uint32)}
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		parts := strings.Fields(line)
+		if len(parts) != 2 {
+			continue
+		}
+		tokenBytes, err := base64.StdEncoding.DecodeString(parts[0])
+		if err != nil {
+			continue
+		}
+		rank, err := strconv.Atoi(parts[1])
+		if err != nil {
+			continue
+		}
+		vocab.Tokens[string(tokenBytes)] = uint32(rank)
+	}
+
+	return vocab, scanner.Err()
 }
