@@ -10,9 +10,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
+      - uses: wow-look-at-my/go-toolchain@v1
         with:
-          go-version-file: go.mod
+          min-coverage: 0
 
       - name: Run benchmarks
         run: go test -run=^$ -bench=. -benchmem -count=1 ./... | tee bench-raw.txt
