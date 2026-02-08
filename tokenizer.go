@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/klauspost/compress/zstd"
 	lru "github.com/hashicorp/golang-lru/v2"
 
 	"github.com/wow-look-at-my/go-tokenizer/embed"
@@ -85,7 +86,15 @@ func NewWithEncoding(name string) (Tokenizer, error) {
 	case "cl100k_base":
 		vocabData = embed.Cl100kBase
 	case "gemma":
-		vocabData = embed.Gemma
+		decoder, err := zstd.NewReader(nil)
+		if err != nil {
+			return nil, fmt.Errorf("creating zstd decoder: %w", err)
+		}
+		vocabData, err = decoder.DecodeAll(embed.GemmaZst, nil)
+		decoder.Close()
+		if err != nil {
+			return nil, fmt.Errorf("decompressing gemma vocab: %w", err)
+		}
 	default:
 		return nil, fmt.Errorf("no embedded vocabulary for encoding: %s", name)
 	}

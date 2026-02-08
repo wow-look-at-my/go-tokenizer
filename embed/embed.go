@@ -9,5 +9,5 @@ import (
 //go:embed cl100k_base.tiktoken
 var Cl100kBase []byte
 
-//go:embed gemma.bin
-var Gemma []byte
+//go:embed gemma.bin.zst
+var GemmaZst []byte
