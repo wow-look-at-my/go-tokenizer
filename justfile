@@ -38,12 +38,6 @@ compare-compression:
 	rm -rf "$t"
 
 download-gemma:
-	#!/usr/bin/env bash
-	set -euo pipefail
-	if [ ! -d "embeddinggemma_files" ]; then
-		huggingface-cli download google/embeddinggemma-300m \
-			--include "tokenizer*" "special_tokens_map.json" \
-			--local-dir embeddinggemma_files
-	else
-		echo "embeddinggemma_files already exists"
-	fi
+	hf download google/embeddinggemma-300m \
+		--include "tokenizer*" --include "special_tokens_map.json" \
+		--local-dir embeddinggemma_files
