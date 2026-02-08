@@ -24,23 +24,3 @@ jobs:
             echo ''
             awk -f scripts/fmt-bench.awk bench-raw.txt
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Generate SVG chart
-        run: go run ./scripts/benchviz < bench-raw.txt > bench.svg
-
-      - name: Attach chart to summary
-        run: |
-          {
-            echo ''
-            echo '## Chart'
-            echo ''
-            cat bench.svg
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-results
-          path: |
-            bench-raw.txt
-            bench.svg
