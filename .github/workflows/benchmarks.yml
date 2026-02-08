@@ -23,4 +23,8 @@ jobs:
             echo '## Benchmark Results'
             echo ''
             awk -f scripts/fmt-bench.awk bench-raw.txt
+            echo ''
+            echo '## Chart'
+            echo ''
+            echo "![benchmarks](data:image/svg+xml;base64,$(go run ./scripts/benchviz < bench-raw.txt | base64 -w0))"
           } >> "$GITHUB_STEP_SUMMARY"
