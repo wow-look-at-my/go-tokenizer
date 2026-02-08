@@ -202,8 +202,79 @@ func (b *BPE) countWithRanks(input []byte) int {
 }
 
 func (b *BPE) countWithMerges(input []byte) int {
-	// Just use Encode for now - could optimize later
-	return len(b.encodeWithMerges(input))
+	// Start with token IDs for each character
+	ids := make([]int, 0, len(input))
+	text := string(input)
+	for _, r := range text {
+		charBytes := []byte(string(r))
+		if id, ok := b.vocab.Encode(charBytes); ok {
+			ids = append(ids, id)
+		} else {
+			for _, by := range charBytes {
+				if id, ok := b.vocab.Encode([]byte{by}); ok {
+					ids = append(ids, id)
+				}
+			}
+		}
+	}
+
+	idCount := len(ids)
+
+	for idCount > 1 {
+		bestIdx := -1
+		bestPriority := -1
+
+		for i := 0; i < len(ids)-1; i++ {
+			if ids[i] == -1 {
+				continue
+			}
+			nextIdx := -1
+			for j := i + 1; j < len(ids); j++ {
+				if ids[j] != -1 {
+					nextIdx = j
+					break
+				}
+			}
+			if nextIdx == -1 {
+				break
+			}
+
+			if priority, ok := b.vocab.MergePriority(ids[i], ids[nextIdx]); ok {
+				if bestIdx == -1 || priority < bestPriority {
+					bestIdx = i
+					bestPriority = priority
+				}
+			}
+		}
+
+		if bestIdx == -1 {
+			break
+		}
+
+		// Find next non-sentinel after bestIdx
+		nextIdx := -1
+		for j := bestIdx + 1; j < len(ids); j++ {
+			if ids[j] != -1 {
+				nextIdx = j
+				break
+			}
+		}
+
+		// Get merged token ID
+		token1, _ := b.vocab.Decode(ids[bestIdx])
+		token2, _ := b.vocab.Decode(ids[nextIdx])
+		merged := append(token1, token2...)
+		mergedID, ok := b.vocab.Encode(merged)
+		if !ok {
+			break
+		}
+
+		ids[bestIdx] = mergedID
+		ids[nextIdx] = -1
+		idCount--
+	}
+
+	return idCount
 }
 
 // Decode converts token IDs back to bytes
