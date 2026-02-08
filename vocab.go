@@ -10,11 +10,17 @@ import (
 	"strings"
 )
 
+// mergePairKey packs two token IDs into a single uint64 for use as a map key.
+// This avoids the fmt.Sprintf allocation that was the dominant cost in BPE encoding.
+func mergePairKey(id1, id2 int) uint64 {
+	return uint64(uint32(id1))<<32 | uint64(uint32(id2))
+}
+
 // Vocabulary holds the BPE token mappings
 type Vocabulary struct {
-	encoder map[string]int // token bytes -> rank
-	decoder map[int][]byte // rank -> token bytes
-	merges  map[string]int // "id1,id2" -> merge priority (lower = higher priority)
+	encoder map[string]int  // token bytes -> rank
+	decoder map[int][]byte  // rank -> token bytes
+	merges  map[uint64]int  // mergePairKey(id1,id2) -> merge priority (lower = higher priority)
 }
 
 // NewVocabulary creates an empty vocabulary
@@ -22,7 +28,7 @@ func NewVocabulary() *Vocabulary {
 	return &Vocabulary{
 		encoder: make(map[string]int),
 		decoder: make(map[int][]byte),
-		merges:  make(map[string]int),
+		merges:  make(map[uint64]int),
 	}
 }
 
@@ -181,10 +187,6 @@ func loadBinaryV2(data []byte, pos int, numGroups uint32, v *Vocabulary) int {
 		}
 	}
 	return pos
-}
-
-func mergePairKey(id1, id2 int) string {
-	return fmt.Sprintf("%d,%d", id1, id2)
 }
 
 // MergePriority returns the merge priority for a pair of token IDs

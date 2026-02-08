@@ -1,5 +1,7 @@
 package tokenizer
 
+import "container/heap"
+
 // BPE implements the Byte Pair Encoding algorithm
 type BPE struct {
 	vocab *Vocabulary
@@ -63,61 +65,154 @@ func (b *BPE) encodeWithRanks(input []byte) []int {
 	return b.piecesToIDs(pieces)
 }
 
-// encodeWithMerges uses explicit merge rules (HuggingFace style)
+// bpeNode is an element in the linked list of tokens during BPE merging.
+type bpeNode struct {
+	id      int
+	prev    *bpeNode
+	next    *bpeNode
+	removed bool
+}
+
+// mergePair is a candidate merge stored in the priority queue.
+type mergePair struct {
+	priority int
+	left     *bpeNode
+	right    *bpeNode
+	leftID   int // id of left node when this entry was created
+	rightID  int // id of right node when this entry was created
+}
+
+// mergeHeap implements heap.Interface for mergePair, ordered by priority (lower = better).
+type mergeHeap []mergePair
+
+func (h mergeHeap) Len() int            { return len(h) }
+func (h mergeHeap) Less(i, j int) bool   { return h[i].priority < h[j].priority }
+func (h mergeHeap) Swap(i, j int)        { h[i], h[j] = h[j], h[i] }
+func (h *mergeHeap) Push(x any)          { *h = append(*h, x.(mergePair)) }
+func (h *mergeHeap) Pop() any {
+	old := *h
+	n := len(old)
+	x := old[n-1]
+	*h = old[:n-1]
+	return x
+}
+
+// encodeWithMerges uses explicit merge rules (HuggingFace/SentencePiece style).
+// Uses a linked list + min-heap for O(n log n) instead of O(n²).
 func (b *BPE) encodeWithMerges(input []byte) []int {
-	// Start with token IDs for each character (not byte)
-	// SentencePiece-style tokenizers use characters as base units
-	ids := make([]int, 0, len(input))
+	// Build initial linked list of character tokens
 	text := string(input)
+	var head, tail *bpeNode
+	nodeCount := 0
+
+	appendNode := func(id int) {
+		node := &bpeNode{id: id}
+		if tail != nil {
+			tail.next = node
+			node.prev = tail
+		} else {
+			head = node
+		}
+		tail = node
+		nodeCount++
+	}
+
 	for _, r := range text {
 		charBytes := []byte(string(r))
 		if id, ok := b.vocab.Encode(charBytes); ok {
-			ids = append(ids, id)
+			appendNode(id)
 		} else {
-			// Unknown character - try byte fallback
 			for _, by := range charBytes {
 				if id, ok := b.vocab.Encode([]byte{by}); ok {
-					ids = append(ids, id)
+					appendNode(id)
 				}
 			}
 		}
 	}
 
-	for len(ids) > 1 {
-		bestIdx := -1
-		bestPriority := -1
+	if nodeCount <= 1 {
+		result := make([]int, 0, nodeCount)
+		for n := head; n != nil; n = n.next {
+			result = append(result, n.id)
+		}
+		return result
+	}
 
-		for i := 0; i < len(ids)-1; i++ {
-			if priority, ok := b.vocab.MergePriority(ids[i], ids[i+1]); ok {
-				if bestIdx == -1 || priority < bestPriority {
-					bestIdx = i
-					bestPriority = priority
-				}
-			}
+	// Build priority queue of all mergeable adjacent pairs
+	h := &mergeHeap{}
+	for n := head; n != nil && n.next != nil; n = n.next {
+		if priority, ok := b.vocab.MergePriority(n.id, n.next.id); ok {
+			*h = append(*h, mergePair{
+				priority: priority,
+				left:     n,
+				right:    n.next,
+				leftID:   n.id,
+				rightID:  n.next.id,
+			})
+		}
+	}
+	heap.Init(h)
+
+	// Process merges
+	for h.Len() > 0 {
+		best := heap.Pop(h).(mergePair)
+
+		// Skip stale entries: node removed, id changed, or no longer adjacent
+		if best.left.removed || best.right.removed ||
+			best.left.id != best.leftID || best.right.id != best.rightID ||
+			best.left.next != best.right {
+			continue
 		}
 
-		if bestIdx == -1 {
-			break
-		}
-
-		// Get merged token
-		token1, _ := b.vocab.Decode(ids[bestIdx])
-		token2, _ := b.vocab.Decode(ids[bestIdx+1])
+		// Compute merged token
+		token1, _ := b.vocab.Decode(best.left.id)
+		token2, _ := b.vocab.Decode(best.right.id)
 		merged := append(token1, token2...)
 		mergedID, ok := b.vocab.Encode(merged)
 		if !ok {
-			break
+			continue
 		}
 
-		// Apply merge
-		newIDs := make([]int, 0, len(ids)-1)
-		newIDs = append(newIDs, ids[:bestIdx]...)
-		newIDs = append(newIDs, mergedID)
-		newIDs = append(newIDs, ids[bestIdx+2:]...)
-		ids = newIDs
+		// Apply merge: update left node, remove right node from list
+		best.left.id = mergedID
+		best.left.next = best.right.next
+		if best.right.next != nil {
+			best.right.next.prev = best.left
+		}
+		best.right.removed = true
+		nodeCount--
+
+		// Enqueue new neighbor pairs
+		if best.left.prev != nil {
+			if priority, ok := b.vocab.MergePriority(best.left.prev.id, best.left.id); ok {
+				heap.Push(h, mergePair{
+					priority: priority,
+					left:     best.left.prev,
+					right:    best.left,
+					leftID:   best.left.prev.id,
+					rightID:  best.left.id,
+				})
+			}
+		}
+		if best.left.next != nil {
+			if priority, ok := b.vocab.MergePriority(best.left.id, best.left.next.id); ok {
+				heap.Push(h, mergePair{
+					priority: priority,
+					left:     best.left,
+					right:    best.left.next,
+					leftID:   best.left.id,
+					rightID:  best.left.next.id,
+				})
+			}
+		}
 	}
 
-	return ids
+	// Collect results
+	result := make([]int, 0, nodeCount)
+	for n := head; n != nil; n = n.next {
+		result = append(result, n.id)
+	}
+	return result
 }
 
 func (b *BPE) piecesToIDs(pieces [][]byte) []int {
@@ -202,79 +297,7 @@ func (b *BPE) countWithRanks(input []byte) int {
 }
 
 func (b *BPE) countWithMerges(input []byte) int {
-	// Start with token IDs for each character
-	ids := make([]int, 0, len(input))
-	text := string(input)
-	for _, r := range text {
-		charBytes := []byte(string(r))
-		if id, ok := b.vocab.Encode(charBytes); ok {
-			ids = append(ids, id)
-		} else {
-			for _, by := range charBytes {
-				if id, ok := b.vocab.Encode([]byte{by}); ok {
-					ids = append(ids, id)
-				}
-			}
-		}
-	}
-
-	idCount := len(ids)
-
-	for idCount > 1 {
-		bestIdx := -1
-		bestPriority := -1
-
-		for i := 0; i < len(ids)-1; i++ {
-			if ids[i] == -1 {
-				continue
-			}
-			nextIdx := -1
-			for j := i + 1; j < len(ids); j++ {
-				if ids[j] != -1 {
-					nextIdx = j
-					break
-				}
-			}
-			if nextIdx == -1 {
-				break
-			}
-
-			if priority, ok := b.vocab.MergePriority(ids[i], ids[nextIdx]); ok {
-				if bestIdx == -1 || priority < bestPriority {
-					bestIdx = i
-					bestPriority = priority
-				}
-			}
-		}
-
-		if bestIdx == -1 {
-			break
-		}
-
-		// Find next non-sentinel after bestIdx
-		nextIdx := -1
-		for j := bestIdx + 1; j < len(ids); j++ {
-			if ids[j] != -1 {
-				nextIdx = j
-				break
-			}
-		}
-
-		// Get merged token ID
-		token1, _ := b.vocab.Decode(ids[bestIdx])
-		token2, _ := b.vocab.Decode(ids[nextIdx])
-		merged := append(token1, token2...)
-		mergedID, ok := b.vocab.Encode(merged)
-		if !ok {
-			break
-		}
-
-		ids[bestIdx] = mergedID
-		ids[nextIdx] = -1
-		idCount--
-	}
-
-	return idCount
+	return len(b.encodeWithMerges(input))
 }
 
 // Decode converts token IDs back to bytes

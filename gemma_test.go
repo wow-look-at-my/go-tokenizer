@@ -1,6 +1,7 @@
 package tokenizer
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -131,3 +132,27 @@ func BenchmarkGemmaEncode(b *testing.B) {
 		_, _ = tok.Encode(text)
 	}
 }
+
+func benchGemmaCountTokens(b *testing.B, size int) {
+	b.Helper()
+	tok, err := NewWithEncoding("gemma")
+	if err != nil {
+		b.Fatalf("NewWithEncoding error: %v", err)
+	}
+
+	base := "The quick brown fox jumps over the lazy dog. "
+	var sb strings.Builder
+	for sb.Len() < size {
+		sb.WriteString(base)
+	}
+	text := sb.String()[:size]
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = tok.CountTokens(text)
+	}
+}
+
+func BenchmarkGemmaCountTokens_1KB(b *testing.B)   { benchGemmaCountTokens(b, 1_000) }
+func BenchmarkGemmaCountTokens_10KB(b *testing.B)  { benchGemmaCountTokens(b, 10_000) }
+func BenchmarkGemmaCountTokens_100KB(b *testing.B) { benchGemmaCountTokens(b, 100_000) }
