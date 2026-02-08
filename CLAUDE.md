@@ -1,0 +1,38 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Commands
+
+```bash
+go-safe-build
+```
+
+## Architecture
+
+This is a Go BPE (Byte Pair Encoding) tokenizer library supporting OpenAI's tiktoken encodings and Google's Gemma.
+
+### Core Components
+
+- **tokenizer.go** - Main `Tokenizer` interface with `Encode`, `Decode`, `CountTokens`. Uses functional options pattern (`WithPattern`, `WithCacheSize`, etc.)
+- **bpe.go** - BPE algorithm with two modes:
+  - `encodeWithRanks` - tiktoken style, uses token rank as merge priority
+  - `encodeWithMerges` - HuggingFace/SentencePiece style, uses explicit merge rules
+- **vocab.go** - Vocabulary loading from tiktoken format (base64 text) or binary format
+- **pretokenizer.go** - Regex-based text splitting before BPE. Uses `regexp2` for Unicode support
+- **encodings.go** - Encoding configs (cl100k_base, p50k_base, o200k_base, gemma) with patterns and special tokens
+
+### Vocabulary Formats
+
+1. **Tiktoken** (.tiktoken) - `<base64_token> <rank>` per line
+2. **Binary** - Compact format with "BPEV" magic, grouped by token length, includes merge rules
+
+### Embedded Vocabularies
+
+The `embed/` package embeds vocabulary files at compile time:
+- `cl100k_base.tiktoken` - GPT-4 encoding
+- `gemma.bin` - Gemma encoding (binary format with merges)
+
+### Text Normalization
+
+Gemma uses SentencePiece-style normalization (space → ▁). Normalization functions are configured per encoding in `EncodingConfig`.

@@ -8,7 +8,7 @@ import (
 
 	lru "github.com/hashicorp/golang-lru/v2"
 
-	"tokenizer/embed"
+	"github.com/wow-look-at-my/go-tokenizer/embed"
 )
 
 // Tokenizer is the main interface for BPE tokenization

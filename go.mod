@@ -1,4 +1,4 @@
-module tokenizer
+module github.com/wow-look-at-my/go-tokenizer
 
 go 1.21
 
