@@ -3,3 +3,4 @@ build/
 coverage.out
 embed/cl100k_base.tiktoken
 embed/*.bin
+embed/*.zst
