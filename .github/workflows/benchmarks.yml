@@ -13,6 +13,7 @@ jobs:
       - uses: wow-look-at-my/go-toolchain@v1
         with:
           min-coverage: 0
+          generate: b75093eac10a
 
       - name: Run benchmarks
         run: go test -run=^$ -bench=. -benchmem -count=1 ./... | tee bench-raw.txt
