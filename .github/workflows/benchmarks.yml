@@ -14,6 +14,8 @@ jobs:
         run: pip install huggingface_hub[cli]
 
       - uses: wow-look-at-my/go-toolchain@v1
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         with:
           min-coverage: 0
           generate: b75093eac10a
