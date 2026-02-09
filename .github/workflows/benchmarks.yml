@@ -10,6 +10,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install hf CLI
+        run: pip install huggingface_hub[cli]
+
       - uses: wow-look-at-my/go-toolchain@v1
         with:
           min-coverage: 0
