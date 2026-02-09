@@ -371,18 +371,22 @@ func BenchmarkEncodeCacheWarm(b *testing.B) {
 }
 
 func BenchmarkEncodeCacheCold(b *testing.B) {
-	text := englishProse(1_000)
+	tok, err := New()
+	if err != nil {
+		b.Fatalf("New() error: %v", err)
+	}
 
-	b.SetBytes(int64(len(text)))
+	// Pre-generate unique texts to avoid cache hits
+	const numTexts = 10000
+	texts := make([]string, numTexts)
+	for i := range texts {
+		texts[i] = fmt.Sprintf("%s unique%d", englishProse(1_000), i)
+	}
+
+	b.SetBytes(int64(len(texts[0])))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		b.StopTimer()
-		tok, err := New()
-		if err != nil {
-			b.Fatalf("New() error: %v", err)
-		}
-		b.StartTimer()
-		_, _ = tok.Encode(text)
+		_, _ = tok.Encode(texts[i%numTexts])
 	}
 }
 

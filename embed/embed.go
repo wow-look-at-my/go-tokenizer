@@ -4,6 +4,7 @@ import (
 	_ "embed"
 )
 
+//go:generate sh -c "hf download google/embeddinggemma-300m --include 'tokenizer*' --include 'special_tokens_map.json' --local-dir ../embeddinggemma_files 2>&1"
 //go:generate go run ../cmd/convert ../embeddinggemma_files/tokenizer.json gemma.bin
 //go:generate zstd -19 -q --rm -f gemma.bin
 

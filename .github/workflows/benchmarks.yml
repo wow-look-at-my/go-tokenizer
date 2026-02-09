@@ -10,9 +10,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
+      - name: Install hf CLI
+        run: pip install huggingface_hub[cli]
+
+      - uses: wow-look-at-my/go-toolchain@v1
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         with:
-          go-version-file: go.mod
+          min-coverage: 0
+          generate: b75093eac10a
 
       - name: Run benchmarks
         run: go test -run=^$ -bench=. -benchmem -count=1 ./... | tee bench-raw.txt
