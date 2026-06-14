@@ -35,8 +35,14 @@ This is a Go BPE (Byte Pair Encoding) tokenizer library supporting OpenAI's tikt
 ### Embedded Vocabularies
 
 The `embed/` package embeds vocabulary files at compile time:
-- `cl100k_base.tiktoken` - GPT-4 encoding
-- `gemma.bin` - Gemma encoding (binary format with merges)
+- `cl100k_base.bin.zst` - GPT-4 encoding (binary format, zstd-compressed)
+- `gemma.bin.zst` - Gemma encoding (binary format with merges, zstd-compressed)
+
+These blobs are committed to the repo. They are regenerated from upstream sources
+(OpenAI's published `cl100k_base.tiktoken` and the HuggingFace gemma tokenizer) by
+running `just regen-vocab`, which downloads, converts via `cmd/convert`, and
+zstd-compresses them. Regeneration is a manual maintenance step, not part of the
+build, so there are no `//go:generate` directives (CI does not download vocab).
 
 ### Text Normalization
 

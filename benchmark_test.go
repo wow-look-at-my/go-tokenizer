@@ -2,6 +2,7 @@ package tokenizer
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"strings"
 	"testing"
 )
@@ -71,9 +72,7 @@ func whitespaceHeavy(n int) string {
 
 func BenchmarkEncodeBySize(b *testing.B) {
 	tok, err := New()
-	if err != nil {
-		b.Fatalf("New() error: %v", err)
-	}
+	require.Nil(b, err)
 
 	sizes := []struct {
 		name string
@@ -104,9 +103,7 @@ func BenchmarkEncodeBySize(b *testing.B) {
 
 func BenchmarkEncodeByContent(b *testing.B) {
 	tok, err := New()
-	if err != nil {
-		b.Fatalf("New() error: %v", err)
-	}
+	require.Nil(b, err)
 
 	const size = 1_000
 
@@ -139,9 +136,7 @@ func BenchmarkEncodeByContent(b *testing.B) {
 
 func BenchmarkCountTokensBySize(b *testing.B) {
 	tok, err := New()
-	if err != nil {
-		b.Fatalf("New() error: %v", err)
-	}
+	require.Nil(b, err)
 
 	sizes := []struct {
 		name string
@@ -172,9 +167,7 @@ func BenchmarkCountTokensBySize(b *testing.B) {
 
 func BenchmarkDecodeBySize(b *testing.B) {
 	tok, err := New()
-	if err != nil {
-		b.Fatalf("New() error: %v", err)
-	}
+	require.Nil(b, err)
 
 	sizes := []struct {
 		name string
@@ -190,9 +183,8 @@ func BenchmarkDecodeBySize(b *testing.B) {
 	for _, s := range sizes {
 		text := englishProse(s.size)
 		tokens, err := tok.Encode(text)
-		if err != nil {
-			b.Fatalf("Encode() error: %v", err)
-		}
+		require.Nil(b, err)
+
 		b.Run(fmt.Sprintf("%s_%dtokens", s.name, len(tokens)), func(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
@@ -208,9 +200,7 @@ func BenchmarkDecodeBySize(b *testing.B) {
 
 func BenchmarkGemmaEncodeBySize(b *testing.B) {
 	tok, err := NewWithEncoding("gemma")
-	if err != nil {
-		b.Fatalf("NewWithEncoding(gemma) error: %v", err)
-	}
+	require.Nil(b, err)
 
 	sizes := []struct {
 		name string
@@ -236,9 +226,7 @@ func BenchmarkGemmaEncodeBySize(b *testing.B) {
 
 func BenchmarkGemmaEncodeByContent(b *testing.B) {
 	tok, err := NewWithEncoding("gemma")
-	if err != nil {
-		b.Fatalf("NewWithEncoding(gemma) error: %v", err)
-	}
+	require.Nil(b, err)
 
 	const size = 500
 
@@ -268,13 +256,10 @@ func BenchmarkGemmaEncodeByContent(b *testing.B) {
 
 func BenchmarkEncodeCompareEncodings(b *testing.B) {
 	cl100k, err := New()
-	if err != nil {
-		b.Fatalf("New() error: %v", err)
-	}
+	require.Nil(b, err)
+
 	gemma, err := NewWithEncoding("gemma")
-	if err != nil {
-		b.Fatalf("NewWithEncoding(gemma) error: %v", err)
-	}
+	require.Nil(b, err)
 
 	text := englishProse(1_000)
 
@@ -300,9 +285,7 @@ func BenchmarkEncodeCompareEncodings(b *testing.B) {
 
 func BenchmarkEncodeParallel(b *testing.B) {
 	tok, err := New()
-	if err != nil {
-		b.Fatalf("New() error: %v", err)
-	}
+	require.Nil(b, err)
 
 	text := englishProse(1_000)
 
@@ -317,9 +300,7 @@ func BenchmarkEncodeParallel(b *testing.B) {
 
 func BenchmarkCountTokensParallel(b *testing.B) {
 	tok, err := New()
-	if err != nil {
-		b.Fatalf("New() error: %v", err)
-	}
+	require.Nil(b, err)
 
 	text := englishProse(1_000)
 
@@ -355,9 +336,7 @@ func BenchmarkNewTokenizer(b *testing.B) {
 
 func BenchmarkEncodeCacheWarm(b *testing.B) {
 	tok, err := New()
-	if err != nil {
-		b.Fatalf("New() error: %v", err)
-	}
+	require.Nil(b, err)
 
 	text := englishProse(1_000)
 	// Warm the cache
@@ -378,9 +357,8 @@ func BenchmarkEncodeCacheCold(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
 		tok, err := New()
-		if err != nil {
-			b.Fatalf("New() error: %v", err)
-		}
+		require.Nil(b, err)
+
 		b.StartTimer()
 		_, _ = tok.Encode(text)
 	}
@@ -392,9 +370,7 @@ func BenchmarkEncodeCacheCold(b *testing.B) {
 
 func BenchmarkRoundTrip(b *testing.B) {
 	tok, err := New()
-	if err != nil {
-		b.Fatalf("New() error: %v", err)
-	}
+	require.Nil(b, err)
 
 	text := englishProse(1_000)
 
@@ -412,9 +388,7 @@ func BenchmarkRoundTrip(b *testing.B) {
 
 func BenchmarkEncodeVsCountTokens(b *testing.B) {
 	tok, err := New()
-	if err != nil {
-		b.Fatalf("New() error: %v", err)
-	}
+	require.Nil(b, err)
 
 	text := englishProse(1_000)
 
@@ -440,9 +414,7 @@ func BenchmarkEncodeVsCountTokens(b *testing.B) {
 
 func BenchmarkVocabSize(b *testing.B) {
 	tok, err := New()
-	if err != nil {
-		b.Fatalf("New() error: %v", err)
-	}
+	require.Nil(b, err)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
