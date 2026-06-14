@@ -22,6 +22,11 @@ This is a Go BPE (Byte Pair Encoding) tokenizer library supporting OpenAI's tikt
 - **pretokenizer.go** - Regex-based text splitting before BPE. Uses `regexp2` for Unicode support
 - **encodings.go** - Encoding configs (cl100k_base, p50k_base, o200k_base, gemma) with patterns and special tokens
 
+### Command-line tools
+
+- **cmd/go-tokenizer/** - User-facing CLI (cobra) with `encode`, `decode`, `count`, and `encodings` subcommands. One command per file, each self-registering via `init()`; `root.go` holds the shared `--encoding`/`--vocab`/`--pattern` flags and the tokenizer constructor. Note: data is written with `fmt.Fprintln(cmd.OutOrStdout(), ...)` rather than `cmd.Println` (which cobra sends to stderr), so pipelines like `encode | decode` work.
+- **cmd/convert/** - Build-time tool that converts HuggingFace/tiktoken vocabularies into the compact binary format embedded in `embed/`.
+
 ### Vocabulary Formats
 
 1. **Tiktoken** (.tiktoken) - `<base64_token> <rank>` per line
