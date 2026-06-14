@@ -41,3 +41,17 @@ download-gemma:
 	hf download google/embeddinggemma-300m \
 		--include "tokenizer*" --include "special_tokens_map.json" \
 		--local-dir embeddinggemma_files
+
+# Regenerate the embedded cl100k_base vocab from OpenAI's published tiktoken file
+regen-cl100k:
+	curl -sfLo embed/cl100k_base.tiktoken https://openaipublic.blob.core.windows.net/encodings/cl100k_base.tiktoken
+	go run ./cmd/convert embed/cl100k_base.tiktoken embed/cl100k_base.bin
+	zstd -19 -q --rm -f embed/cl100k_base.bin
+
+# Regenerate the embedded gemma vocab (downloads the HuggingFace tokenizer first)
+regen-gemma: download-gemma
+	go run ./cmd/convert embeddinggemma_files/tokenizer.json embed/gemma.bin
+	zstd -19 -q --rm -f embed/gemma.bin
+
+# Regenerate all embedded vocabularies
+regen-vocab: regen-cl100k regen-gemma

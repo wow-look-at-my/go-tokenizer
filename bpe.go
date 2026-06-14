@@ -85,10 +85,10 @@ type mergePair struct {
 // mergeHeap implements heap.Interface for mergePair, ordered by priority (lower = better).
 type mergeHeap []mergePair
 
-func (h mergeHeap) Len() int            { return len(h) }
-func (h mergeHeap) Less(i, j int) bool   { return h[i].priority < h[j].priority }
-func (h mergeHeap) Swap(i, j int)        { h[i], h[j] = h[j], h[i] }
-func (h *mergeHeap) Push(x any)          { *h = append(*h, x.(mergePair)) }
+func (h mergeHeap) Len() int           { return len(h) }
+func (h mergeHeap) Less(i, j int) bool { return h[i].priority < h[j].priority }
+func (h mergeHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+func (h *mergeHeap) Push(x any)        { *h = append(*h, x.(mergePair)) }
 func (h *mergeHeap) Pop() any {
 	old := *h
 	n := len(old)
