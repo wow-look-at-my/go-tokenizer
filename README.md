@@ -105,6 +105,15 @@ ID    TOKEN
 $ go-tokenizer count "Hello World"
 2
 
+# Batch counting: one long-lived process, vocabulary loaded once. Each stdin
+# line is a JSON-encoded string; each stdout line is its token count (bare
+# decimal, input order), written as soon as it is computed — so a driving
+# process can bulk-stream sections or interleave request/response over pipes.
+# Blank lines are skipped; a non-JSON-string line aborts with the line number.
+$ printf '"Hello World"\n"Hello"\n' | go-tokenizer count --batch
+2
+1
+
 # Decode token IDs back into text (accepts spaces, commas, or a JSON array)
 $ go-tokenizer decode 9906 4435
 Hello World
@@ -133,6 +142,7 @@ p50k_base    not embedded
 | `--vocab` | all | Path to a custom `.tiktoken` vocabulary file (overrides `--encoding`) |
 | `--pattern` | all | Custom pre-tokenization regex (only used with `--vocab`) |
 | `-i, --input` | `encode`, `count` | Read input text from a file instead of args/stdin |
+| `--batch` | `count` | JSON-lines batch mode: each stdin line is a JSON-encoded string, each stdout line its token count (mutually exclusive with args/`--input`) |
 | `-f, --format` | `encode` | Output format: `ids` (default), `json`, or `pretty` |
 | `-n, --no-newline` | `decode` | Do not print a trailing newline |
 

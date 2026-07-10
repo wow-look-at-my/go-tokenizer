@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -29,6 +30,7 @@ func runErr(t *testing.T, stdin string, args ...string) (string, string, error) 
 	inputFile = ""
 	encodeFormat = "ids"
 	decodeNoNewline = false
+	countBatch = false
 
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
@@ -89,6 +91,97 @@ func TestCount(t *testing.T) {
 	got := strings.TrimSpace(out)
 	assert.Equal(t, "2", got)
 
+}
+
+// TestCountBatch verifies the JSON-lines batch protocol: one JSON-encoded
+// string per input line, one decimal count per output line, in input order,
+// matching what individual count invocations would return.
+func TestCountBatch(t *testing.T) {
+	out, err := run(t, "\"Hello World\"\n\"Hello\"\n\"The quick brown fox\"\n", "count", "--batch")
+	require.Nil(t, err)
+
+	assert.Equal(t, "2\n1\n4\n", out)
+}
+
+func TestCountBatchMatchesSingleCount(t *testing.T) {
+	text := "func main() {\n\tfmt.Println(\"hi\")\n}\n"
+	single, err := run(t, text, "count")
+	require.Nil(t, err)
+
+	enc, jerr := json.Marshal(text)
+	require.Nil(t, jerr)
+
+	batch, err := run(t, string(enc)+"\n", "count", "--batch")
+	require.Nil(t, err)
+
+	assert.Equal(t, strings.TrimSpace(single), strings.TrimSpace(batch))
+}
+
+func TestCountBatchGemma(t *testing.T) {
+	out, err := run(t, "\"Hello World\"\n", "count", "--batch", "--encoding", "gemma")
+	require.Nil(t, err)
+
+	single, err := run(t, "Hello World", "count", "--encoding", "gemma")
+	require.Nil(t, err)
+
+	assert.Equal(t, strings.TrimSpace(single), strings.TrimSpace(out))
+}
+
+// Newlines inside a section arrive JSON-escaped (\n), so a multi-line text is
+// still exactly one input line and yields exactly one count.
+func TestCountBatchMultilineSection(t *testing.T) {
+	out, err := run(t, `"line one\nline two\nline three"`+"\n", "count", "--batch")
+	require.Nil(t, err)
+
+	require.Equal(t, 1, len(strings.Fields(out)))
+}
+
+func TestCountBatchEmptyStringCountsZero(t *testing.T) {
+	out, err := run(t, "\"\"\n", "count", "--batch")
+	require.Nil(t, err)
+
+	assert.Equal(t, "0\n", out)
+}
+
+func TestCountBatchSkipsBlankLines(t *testing.T) {
+	out, err := run(t, "\n\"Hello World\"\n\n  \n\"Hello\"\n\n", "count", "--batch")
+	require.Nil(t, err)
+
+	assert.Equal(t, "2\n1\n", out)
+}
+
+func TestCountBatchNoTrailingNewline(t *testing.T) {
+	out, err := run(t, "\"Hello World\"", "count", "--batch")
+	require.Nil(t, err)
+
+	assert.Equal(t, "2\n", out)
+}
+
+// A malformed line must abort the run with an error naming the line number --
+// a silent gap in the counts would desynchronize the caller.
+func TestCountBatchMalformedLine(t *testing.T) {
+	_, err := run(t, "\"ok\"\nnot json\n", "count", "--batch")
+	require.NotNil(t, err)
+
+	assert.Contains(t, err.Error(), "line 2")
+}
+
+// A JSON value that is not a string (a number, an object) is rejected too.
+func TestCountBatchNonStringJSON(t *testing.T) {
+	_, err := run(t, "42\n", "count", "--batch")
+	require.NotNil(t, err)
+
+	assert.Contains(t, err.Error(), "line 1")
+}
+
+func TestCountBatchRejectsArgs(t *testing.T) {
+	_, err := run(t, "", "count", "--batch", "some text")
+	require.NotNil(t, err)
+}
+
+func TestCountBatchRejectsInputFlag(t *testing.T) {
+	_, err := run(t, "", "count", "--batch", "--input", "somefile.txt")
+	require.NotNil(t, err)
 }
 
 func TestDecodeArgs(t *testing.T) {
