@@ -24,7 +24,7 @@ This is a Go BPE (Byte Pair Encoding) tokenizer library supporting OpenAI's tikt
 
 ### Command-line tools
 
-- **cmd/go-tokenizer/** - User-facing CLI (cobra) with `encode`, `decode`, `count`, and `encodings` subcommands. One command per file, each self-registering via `init()`; `root.go` holds the shared `--encoding`/`--vocab`/`--pattern` flags and the tokenizer constructor. Note: data is written with `fmt.Fprintln(cmd.OutOrStdout(), ...)` rather than `cmd.Println` (which cobra sends to stderr), so pipelines like `encode | decode` work.
+- **cmd/go-tokenizer/** - User-facing CLI (cobra) with `encode`, `decode`, `count`, and `encodings` subcommands. One command per file, each self-registering via `init()`; `root.go` holds the shared `--encoding`/`--vocab`/`--pattern` flags and the tokenizer constructor. Note: data is written with `fmt.Fprintln(cmd.OutOrStdout(), ...)` rather than `cmd.Println` (which cobra sends to stderr), so pipelines like `encode | decode` work. `count --batch` is a JSON-lines streaming mode (one JSON-encoded string per stdin line -> one decimal count per stdout line, in order, replied per line) so a caller can count many sections over ONE process, paying the vocabulary load once; a malformed line aborts with its line number, never a silent gap (webhooks' pr-describe hook drives this to pack diff sections into token-budgeted model calls).
 - **cmd/convert/** - Build-time tool that converts HuggingFace/tiktoken vocabularies into the compact binary format embedded in `embed/`.
 
 ### Vocabulary Formats
