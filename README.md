@@ -68,6 +68,84 @@ tok, err := tokenizer.NewFromFile("path/to/vocab.tiktoken",
 )
 ```
 
+## Command-line interface
+
+A `go-tokenizer` CLI lives under `cmd/go-tokenizer`.
+
+### Install
+
+```bash
+go install github.com/wow-look-at-my/go-tokenizer/cmd/go-tokenizer@latest
+```
+
+Or build from a checkout:
+
+```bash
+go build -o go-tokenizer ./cmd/go-tokenizer
+```
+
+### Usage
+
+```bash
+# Encode text into token IDs (reads positional args, --input file, or stdin)
+$ go-tokenizer encode "Hello World"
+9906 4435
+
+# JSON output
+$ go-tokenizer encode --format json "Hello World"
+[9906,4435]
+
+# Show each token ID alongside its text
+$ go-tokenizer encode --format pretty "Hello World"
+ID    TOKEN
+9906  "Hello"
+4435  " World"
+
+# Count tokens
+$ go-tokenizer count "Hello World"
+2
+
+# Batch counting: one long-lived process, vocabulary loaded once. Each stdin
+# line is a JSON-encoded string; each stdout line is its token count (bare
+# decimal, input order), written as soon as it is computed — so a driving
+# process can bulk-stream sections or interleave request/response over pipes.
+# Blank lines are skipped; a non-JSON-string line aborts with the line number.
+$ printf '"Hello World"\n"Hello"\n' | go-tokenizer count --batch
+2
+1
+
+# Decode token IDs back into text (accepts spaces, commas, or a JSON array)
+$ go-tokenizer decode 9906 4435
+Hello World
+
+# Pipe-friendly: encode | decode round-trips
+$ printf 'The quick brown fox' | go-tokenizer encode | go-tokenizer decode
+The quick brown fox
+
+# Use a different encoding
+$ go-tokenizer encode --encoding gemma "Hello World"
+
+# List available encodings
+$ go-tokenizer encodings
+ENCODING     STATUS
+cl100k_base  embedded (100261 tokens) (default)
+gemma        embedded (262144 tokens)
+o200k_base   not embedded
+p50k_base    not embedded
+```
+
+### Flags
+
+| Flag | Commands | Description |
+|------|----------|-------------|
+| `-e, --encoding` | all | Named encoding to use (default `cl100k_base`) |
+| `--vocab` | all | Path to a custom `.tiktoken` vocabulary file (overrides `--encoding`) |
+| `--pattern` | all | Custom pre-tokenization regex (only used with `--vocab`) |
+| `-i, --input` | `encode`, `count` | Read input text from a file instead of args/stdin |
+| `--batch` | `count` | JSON-lines batch mode: each stdin line is a JSON-encoded string, each stdout line its token count (mutually exclusive with args/`--input`) |
+| `-f, --format` | `encode` | Output format: `ids` (default), `json`, or `pretty` |
+| `-n, --no-newline` | `decode` | Do not print a trailing newline |
+
 ## Supported Encodings
 
 | Encoding | Models | Vocab Size |
@@ -76,6 +154,10 @@ tok, err := tokenizer.NewFromFile("path/to/vocab.tiktoken",
 | `p50k_base` | text-davinci-003 | 50k |
 | `o200k_base` | GPT-4o | 200k |
 | `gemma` | Gemma | 256k |
+
+Only `cl100k_base` and `gemma` ship with embedded vocabularies. `p50k_base` and
+`o200k_base` define their patterns and special tokens but need a vocabulary file
+supplied via `--vocab` (CLI) or `NewFromFile` (library).
 
 ## Features
 
