@@ -1,6 +1,8 @@
 package tokenizer
 
 import (
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"testing"
@@ -13,27 +15,19 @@ func TestNewFromFile(t *testing.T) {
 
 	// Write a simple vocab: "hello" = 0, "world" = 1
 	content := "aGVsbG8= 0\nd29ybGQ= 1\n"
-	if err := os.WriteFile(vocabPath, []byte(content), 0644); err != nil {
-		t.Fatalf("Failed to write test vocab: %v", err)
-	}
+	require.NoError(t, os.WriteFile(vocabPath, []byte(content), 0644))
 
 	tok, err := NewFromFile(vocabPath)
-	if err != nil {
-		t.Fatalf("NewFromFile error: %v", err)
-	}
+	require.Nil(t, err)
 
-	if tok.VocabSize() != 2 {
-		t.Errorf("VocabSize() = %d, want 2", tok.VocabSize())
-	}
+	assert.Equal(t, 2, tok.VocabSize())
 
 	// Test encoding
 	tokens, err := tok.Encode("hello")
-	if err != nil {
-		t.Fatalf("Encode error: %v", err)
-	}
-	if len(tokens) != 1 || tokens[0] != 0 {
-		t.Errorf("Encode(\"hello\") = %v, want [0]", tokens)
-	}
+	require.Nil(t, err)
+
+	assert.False(t, len(tokens) != 1 || tokens[0] != 0)
+
 }
 
 func TestNewFromFileWithOptions(t *testing.T) {
@@ -41,9 +35,7 @@ func TestNewFromFileWithOptions(t *testing.T) {
 	vocabPath := filepath.Join(tmpDir, "test.tiktoken")
 
 	content := "aGVsbG8= 0\nd29ybGQ= 1\n"
-	if err := os.WriteFile(vocabPath, []byte(content), 0644); err != nil {
-		t.Fatalf("Failed to write test vocab: %v", err)
-	}
+	require.NoError(t, os.WriteFile(vocabPath, []byte(content), 0644))
 
 	specialTokens := map[string]int{"<test>": 100}
 
@@ -52,39 +44,31 @@ func TestNewFromFileWithOptions(t *testing.T) {
 		WithSpecialTokens(specialTokens),
 		WithCacheSize(100),
 	)
-	if err != nil {
-		t.Fatalf("NewFromFile error: %v", err)
-	}
+	require.Nil(t, err)
 
 	// Test special token
 	tokens, err := tok.Encode("<test>")
-	if err != nil {
-		t.Fatalf("Encode error: %v", err)
-	}
-	if len(tokens) != 1 || tokens[0] != 100 {
-		t.Errorf("Encode(\"<test>\") = %v, want [100]", tokens)
-	}
+	require.Nil(t, err)
+
+	assert.False(t, len(tokens) != 1 || tokens[0] != 100)
+
 }
 
 func TestNewFromFileNotFound(t *testing.T) {
 	_, err := NewFromFile("/nonexistent/path/vocab.tiktoken")
-	if err == nil {
-		t.Error("Expected error for nonexistent file")
-	}
+	assert.NotNil(t, err)
+
 }
 
 func TestNewWithEncodingUnknown(t *testing.T) {
 	_, err := NewWithEncoding("unknown_encoding")
-	if err == nil {
-		t.Error("Expected error for unknown encoding")
-	}
+	assert.NotNil(t, err)
+
 }
 
 func TestCountTokensCl100k(t *testing.T) {
 	tok, err := New()
-	if err != nil {
-		t.Fatalf("New() error: %v", err)
-	}
+	require.Nil(t, err)
 
 	// Test count matches encode length for various inputs
 	testCases := []string{
@@ -98,21 +82,16 @@ func TestCountTokensCl100k(t *testing.T) {
 	for _, tc := range testCases {
 		tokens, _ := tok.Encode(tc)
 		count, err := tok.CountTokens(tc)
-		if err != nil {
-			t.Errorf("CountTokens(%q) error: %v", tc, err)
-			continue
-		}
-		if count != len(tokens) {
-			t.Errorf("CountTokens(%q) = %d, Encode returned %d tokens", tc, count, len(tokens))
-		}
+		assert.Nil(t, err)
+
+		assert.Equal(t, len(tokens), count)
+
 	}
 }
 
 func TestCountTokensGemma(t *testing.T) {
 	tok, err := NewWithEncoding("gemma")
-	if err != nil {
-		t.Fatalf("NewWithEncoding error: %v", err)
-	}
+	require.Nil(t, err)
 
 	testCases := []string{
 		"hello",
@@ -123,93 +102,68 @@ func TestCountTokensGemma(t *testing.T) {
 	for _, tc := range testCases {
 		tokens, _ := tok.Encode(tc)
 		count, err := tok.CountTokens(tc)
-		if err != nil {
-			t.Errorf("CountTokens(%q) error: %v", tc, err)
-			continue
-		}
-		if count != len(tokens) {
-			t.Errorf("CountTokens(%q) = %d, Encode returned %d tokens", tc, count, len(tokens))
-		}
+		assert.Nil(t, err)
+
+		assert.Equal(t, len(tokens), count)
+
 	}
 }
 
 func TestPreTokenizerErrors(t *testing.T) {
 	// Test with invalid regex pattern
 	_, err := NewPreTokenizer("[invalid", nil)
-	if err == nil {
-		t.Error("Expected error for invalid regex pattern")
-	}
+	assert.NotNil(t, err)
+
 }
 
 func TestPreTokenizerNoSpecialTokens(t *testing.T) {
 	pt, err := NewPreTokenizer(`.+`, nil)
-	if err != nil {
-		t.Fatalf("NewPreTokenizer error: %v", err)
-	}
+	require.Nil(t, err)
 
 	tokens, err := pt.Tokenize("hello world")
-	if err != nil {
-		t.Fatalf("Tokenize error: %v", err)
-	}
+	require.Nil(t, err)
 
-	if len(tokens) != 1 || tokens[0].Text != "hello world" {
-		t.Errorf("Tokenize returned %v, want single token", tokens)
-	}
+	assert.False(t, len(tokens) != 1 || tokens[0].Text != "hello world")
+
 }
 
 func TestPreTokenizerWithSpecialTokens(t *testing.T) {
 	specialTokens := map[string]int{"<s>": 0, "</s>": 1}
 	pt, err := NewPreTokenizer(`.+`, specialTokens)
-	if err != nil {
-		t.Fatalf("NewPreTokenizer error: %v", err)
-	}
+	require.Nil(t, err)
 
 	tokens, err := pt.Tokenize("<s>hello</s>")
-	if err != nil {
-		t.Fatalf("Tokenize error: %v", err)
-	}
+	require.Nil(t, err)
 
-	if len(tokens) != 3 {
-		t.Errorf("Expected 3 tokens, got %d: %v", len(tokens), tokens)
-	}
+	assert.Equal(t, 3, len(tokens))
 
-	if !tokens[0].IsSpecial || tokens[0].Text != "<s>" {
-		t.Errorf("First token should be special <s>, got %v", tokens[0])
-	}
-	if tokens[1].IsSpecial || tokens[1].Text != "hello" {
-		t.Errorf("Second token should be regular 'hello', got %v", tokens[1])
-	}
-	if !tokens[2].IsSpecial || tokens[2].Text != "</s>" {
-		t.Errorf("Third token should be special </s>, got %v", tokens[2])
-	}
+	assert.False(t, !tokens[0].IsSpecial || tokens[0].Text != "<s>")
+
+	assert.False(t, tokens[1].IsSpecial || tokens[1].Text != "hello")
+
+	assert.False(t, !tokens[2].IsSpecial || tokens[2].Text != "</s>")
+
 }
 
 func TestLoadTiktokenErrors(t *testing.T) {
 	// Test with invalid base64
 	_, err := LoadTiktoken(stringReader("invalid!base64 0\n"))
-	if err == nil {
-		t.Error("Expected error for invalid base64")
-	}
+	assert.NotNil(t, err)
 
 	// Test with invalid rank
 	_, err = LoadTiktoken(stringReader("aGVsbG8= notanumber\n"))
-	if err == nil {
-		t.Error("Expected error for invalid rank")
-	}
+	assert.NotNil(t, err)
 
 	// Test with wrong number of fields
 	_, err = LoadTiktoken(stringReader("aGVsbG8=\n"))
-	if err == nil {
-		t.Error("Expected error for wrong number of fields")
-	}
+	assert.NotNil(t, err)
+
 }
 
 func TestLoadBinaryErrors(t *testing.T) {
 	// Test with invalid magic
 	_, err := LoadBinary([]byte("XXXX0000000000000000"))
-	if err == nil {
-		t.Error("Expected error for invalid magic")
-	}
+	assert.NotNil(t, err)
 
 	// Test with unsupported version
 	data := []byte("BPEV")
@@ -217,15 +171,12 @@ func TestLoadBinaryErrors(t *testing.T) {
 	data = append(data, 0, 0, 0, 0)  // vocab size
 	data = append(data, 0, 0, 0, 0)  // num groups
 	_, err = LoadBinary(data)
-	if err == nil {
-		t.Error("Expected error for unsupported version")
-	}
+	assert.NotNil(t, err)
 
 	// Test with too short data
 	_, err = LoadBinary([]byte("BPE"))
-	if err == nil {
-		t.Error("Expected error for too short data")
-	}
+	assert.NotNil(t, err)
+
 }
 
 func TestLoadBinaryV1(t *testing.T) {
@@ -245,90 +196,69 @@ func TestLoadBinaryV1(t *testing.T) {
 	data = append(data, 0, 0, 0, 0)
 
 	v, err := LoadBinary(data)
-	if err != nil {
-		t.Fatalf("LoadBinary v1 error: %v", err)
-	}
-	if v.Size() != 1 {
-		t.Errorf("Size() = %d, want 1", v.Size())
-	}
-	if id, ok := v.Encode([]byte("a")); !ok || id != 0 {
-		t.Errorf("Encode('a') = %d, %v, want 0, true", id, ok)
-	}
+	require.Nil(t, err)
+
+	assert.Equal(t, 1, v.Size())
+
+	id, ok := v.Encode([]byte("a"))
+	assert.False(t, !ok || id != 0)
+
 }
 
 func TestBPEEncodeEmpty(t *testing.T) {
 	tok, _ := New()
 	tokens, err := tok.Encode("")
-	if err != nil {
-		t.Fatalf("Encode error: %v", err)
-	}
-	if tokens != nil {
-		t.Errorf("Encode(\"\") = %v, want nil", tokens)
-	}
+	require.Nil(t, err)
+
+	assert.Nil(t, tokens)
+
 }
 
 func TestBPEDecodeEmpty(t *testing.T) {
 	tok, _ := New()
 	text, err := tok.Decode(nil)
-	if err != nil {
-		t.Fatalf("Decode error: %v", err)
-	}
-	if text != "" {
-		t.Errorf("Decode(nil) = %q, want \"\"", text)
-	}
+	require.Nil(t, err)
+
+	assert.Equal(t, "", text)
+
 }
 
 func TestVocabularyMethods(t *testing.T) {
 	v := NewVocabulary()
 
 	// Test empty vocabulary
-	if v.Size() != 0 {
-		t.Errorf("Size() = %d, want 0", v.Size())
-	}
+	assert.Equal(t, 0, v.Size())
 
 	_, ok := v.Encode([]byte("test"))
-	if ok {
-		t.Error("Encode should return false for unknown token")
-	}
+	assert.False(t, ok)
 
 	_, ok = v.Decode(0)
-	if ok {
-		t.Error("Decode should return false for unknown rank")
-	}
+	assert.False(t, ok)
 
 	// Test HasMerges
-	if v.HasMerges() {
-		t.Error("HasMerges should return false for empty vocab")
-	}
+	assert.False(t, v.HasMerges())
 
 	// Test MergePriority
 	_, ok = v.MergePriority(0, 1)
-	if ok {
-		t.Error("MergePriority should return false for no merges")
-	}
+	assert.False(t, ok)
+
 }
 
 func TestGemmaCountTokens(t *testing.T) {
 	tok, err := NewWithEncoding("gemma")
-	if err != nil {
-		t.Fatalf("NewWithEncoding error: %v", err)
-	}
+	require.Nil(t, err)
 
 	// Empty string
 	count, err := tok.CountTokens("")
-	if err != nil {
-		t.Fatalf("CountTokens error: %v", err)
-	}
-	if count != 0 {
-		t.Errorf("CountTokens(\"\") = %d, want 0", count)
-	}
+	require.Nil(t, err)
+
+	assert.Equal(t, 0, count)
 
 	// Single token
 	count, _ = tok.CountTokens("hello")
 	tokens, _ := tok.Encode("hello")
-	if count != len(tokens) {
-		t.Errorf("CountTokens mismatch: %d vs %d", count, len(tokens))
-	}
+	assert.Equal(t, len(tokens), count)
+
 }
 
 // stringReader is a helper to create an io.Reader from a string
@@ -346,24 +276,20 @@ func TestCountTokensWithoutCache(t *testing.T) {
 		tok, _ := New()
 		// Use unique strings that won't be in cache
 		count, err := tok.CountTokens("xyzzy12345abcde")
-		if err != nil {
-			t.Fatalf("CountTokens error: %v", err)
-		}
-		if count <= 0 {
-			t.Errorf("CountTokens returned %d, want > 0", count)
-		}
+		require.Nil(t, err)
+
+		assert.Greater(t, count, 0)
+
 	})
 
 	t.Run("gemma", func(t *testing.T) {
 		tok, _ := NewWithEncoding("gemma")
 		// Use unique strings that won't be in cache
 		count, err := tok.CountTokens("xyzzy12345abcde unique text here")
-		if err != nil {
-			t.Fatalf("CountTokens error: %v", err)
-		}
-		if count <= 0 {
-			t.Errorf("CountTokens returned %d, want > 0", count)
-		}
+		require.Nil(t, err)
+
+		assert.Greater(t, count, 0)
+
 	})
 }
 
@@ -372,14 +298,11 @@ func TestCountTokensSpecialTokens(t *testing.T) {
 
 	// Test counting with special tokens
 	count, err := tok.CountTokens("Hello<|endoftext|>World")
-	if err != nil {
-		t.Fatalf("CountTokens error: %v", err)
-	}
+	require.Nil(t, err)
 
 	tokens, _ := tok.Encode("Hello<|endoftext|>World")
-	if count != len(tokens) {
-		t.Errorf("CountTokens = %d, Encode = %d tokens", count, len(tokens))
-	}
+	assert.Equal(t, len(tokens), count)
+
 }
 
 func TestNewTokenizerCacheError(t *testing.T) {
@@ -389,9 +312,8 @@ func TestNewTokenizerCacheError(t *testing.T) {
 	v.decoder[0] = []byte("test")
 
 	_, err := newTokenizer(v, `.+`, nil, nil, nil, 1)
-	if err != nil {
-		t.Errorf("newTokenizer with small cache failed: %v", err)
-	}
+	assert.Nil(t, err)
+
 }
 
 func TestBPECountTokensDirectly(t *testing.T) {
@@ -399,13 +321,12 @@ func TestBPECountTokensDirectly(t *testing.T) {
 	tok, _ := New()
 
 	// Access internal bpe through encode/count comparison
-	text := "a]b]c]d]e]f"  // unusual text to avoid cache
+	text := "a]b]c]d]e]f" // unusual text to avoid cache
 	tokens, _ := tok.Encode(text)
 	count, _ := tok.CountTokens(text)
 
-	if count != len(tokens) {
-		t.Errorf("Count mismatch: CountTokens=%d, len(Encode)=%d", count, len(tokens))
-	}
+	assert.Equal(t, len(tokens), count)
+
 }
 
 func TestGemmaCountTokensDirectly(t *testing.T) {
@@ -419,9 +340,8 @@ func TestGemmaCountTokensDirectly(t *testing.T) {
 	tok2, _ := NewWithEncoding("gemma")
 	count, _ := tok2.CountTokens(text)
 
-	if count != len(tokens) {
-		t.Errorf("Count mismatch: CountTokens=%d, len(Encode)=%d", count, len(tokens))
-	}
+	assert.Equal(t, len(tokens), count)
+
 }
 
 func TestTokenizeRegexError(t *testing.T) {
@@ -430,12 +350,10 @@ func TestTokenizeRegexError(t *testing.T) {
 
 	// Empty string
 	tokens, err := pt.Tokenize("")
-	if err != nil {
-		t.Errorf("Tokenize(\"\") error: %v", err)
-	}
-	if len(tokens) != 0 {
-		t.Errorf("Tokenize(\"\") = %v, want empty", tokens)
-	}
+	assert.Nil(t, err)
+
+	assert.Equal(t, 0, len(tokens))
+
 }
 
 func TestMultipleSpecialTokensInSequence(t *testing.T) {
@@ -444,10 +362,8 @@ func TestMultipleSpecialTokensInSequence(t *testing.T) {
 	// Multiple special tokens in sequence
 	text := "<|endoftext|><|endoftext|><|endoftext|>"
 	tokens, err := tok.Encode(text)
-	if err != nil {
-		t.Fatalf("Encode error: %v", err)
-	}
-	if len(tokens) != 3 {
-		t.Errorf("Expected 3 tokens, got %d", len(tokens))
-	}
+	require.Nil(t, err)
+
+	assert.Equal(t, 3, len(tokens))
+
 }

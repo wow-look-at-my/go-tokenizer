@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -24,9 +25,8 @@ func TestWriteVarint(t *testing.T) {
 	for _, tc := range tests {
 		buf := &bytes.Buffer{}
 		writeVarint(buf, tc.val)
-		if !bytes.Equal(buf.Bytes(), tc.want) {
-			t.Errorf("writeVarint(%d) = %v, want %v", tc.val, buf.Bytes(), tc.want)
-		}
+		assert.True(t, bytes.Equal(buf.Bytes(), tc.want))
+
 	}
 }
 
@@ -43,9 +43,8 @@ func TestWriteBinary(t *testing.T) {
 	WriteBinary(v, buf)
 
 	// Check magic
-	if string(buf.Bytes()[:4]) != "BPEV" {
-		t.Errorf("Bad magic: %q", buf.Bytes()[:4])
-	}
+	assert.Equal(t, "BPEV", string(buf.Bytes()[:4]))
+
 }
 
 func TestLoadTiktoken(t *testing.T) {

@@ -18,9 +18,9 @@ func mergePairKey(id1, id2 int) uint64 {
 
 // Vocabulary holds the BPE token mappings
 type Vocabulary struct {
-	encoder map[string]int  // token bytes -> rank
-	decoder map[int][]byte  // rank -> token bytes
-	merges  map[uint64]int  // mergePairKey(id1,id2) -> merge priority (lower = higher priority)
+	encoder map[string]int // token bytes -> rank
+	decoder map[int][]byte // rank -> token bytes
+	merges  map[uint64]int // mergePairKey(id1,id2) -> merge priority (lower = higher priority)
 }
 
 // NewVocabulary creates an empty vocabulary

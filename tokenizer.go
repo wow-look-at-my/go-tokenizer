@@ -6,8 +6,8 @@ import (
 	"os"
 	"sync"
 
-	"github.com/klauspost/compress/zstd"
 	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/klauspost/compress/zstd"
 
 	"github.com/wow-look-at-my/go-tokenizer/embed"
 )
