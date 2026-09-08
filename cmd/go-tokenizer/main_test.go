@@ -8,38 +8,30 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	tokenizer "github.com/wow-look-at-my/go-tokenizer"
 )
 
-// run executes the root command with the given stdin and arguments. It returns
-// stdout only, so tests verify that data lands on stdout (not stderr). Use runErr
-// when stderr is also of interest. Flag-bound vars are reset for independence.
+// run executes a command with the given stdin and arguments, returning stdout
+// alone so tests prove data lands there. Use runErr to inspect stderr.
 func run(t *testing.T, stdin string, args ...string) (string, error) {
 	t.Helper()
 	stdout, _, err := runErr(t, stdin, args...)
 	return stdout, err
 }
 
-// runErr is like run but returns stdout and stderr separately.
+// runErr is like run but returns stdout and stderr separately. Each call builds
+// its own command tree, so tests hold no shared state and run in parallel.
 func runErr(t *testing.T, stdin string, args ...string) (string, string, error) {
 	t.Helper()
 
-	flagEncoding = tokenizer.DefaultEncoding
-	flagVocab = ""
-	flagPattern = ""
-	inputFile = ""
-	encodeFormat = "ids"
-	decodeNoNewline = false
-	countBatch = false
-
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
-	rootCmd.SetOut(stdout)
-	rootCmd.SetErr(stderr)
-	rootCmd.SetIn(strings.NewReader(stdin))
-	rootCmd.SetArgs(args)
+	root := newRootCmd()
+	root.SetOut(stdout)
+	root.SetErr(stderr)
+	root.SetIn(strings.NewReader(stdin))
+	root.SetArgs(args)
 
-	err := rootCmd.Execute()
+	err := root.Execute()
 	return stdout.String(), stderr.String(), err
 }
 
@@ -93,9 +85,8 @@ func TestCount(t *testing.T) {
 
 }
 
-// TestCountBatch verifies the JSON-lines batch protocol: one JSON-encoded
-// string per input line, one decimal count per output line, in input order,
-// matching what individual count invocations would return.
+// TestCountBatch verifies the JSON-lines batch protocol: a JSON-encoded string
+// per input line yields its decimal count per output line, in input order.
 func TestCountBatch(t *testing.T) {
 	out, err := run(t, "\"Hello World\"\n\"Hello\"\n\"The quick brown fox\"\n", "count", "--batch")
 	require.Nil(t, err)
@@ -127,8 +118,8 @@ func TestCountBatchGemma(t *testing.T) {
 	assert.Equal(t, strings.TrimSpace(single), strings.TrimSpace(out))
 }
 
-// Newlines inside a section arrive JSON-escaped (\n), so a multi-line text is
-// still exactly one input line and yields exactly one count.
+// Newlines inside a section arrive JSON-escaped, so a multi-line text stays a
+// single input line and yields a single count.
 func TestCountBatchMultilineSection(t *testing.T) {
 	out, err := run(t, `"line one\nline two\nline three"`+"\n", "count", "--batch")
 	require.Nil(t, err)
