@@ -10,8 +10,8 @@ import (
 	"sync"
 )
 
-// binaryFormatVersion is the BPEV revision this writer emits: token IDs and
-// merge pairs are delta-encoded varints. LoadBinary dispatches on it.
+// binaryFormatVersion is the BPEV revision this writer emits, which LoadBinary
+// dispatches on: token IDs and merge pairs are delta-encoded varints.
 const binaryFormatVersion = 2
 
 type Vocab struct {

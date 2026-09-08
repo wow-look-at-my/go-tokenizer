@@ -154,10 +154,23 @@ p50k_base    not embedded
 | `p50k_base` | text-davinci-003 | 50k |
 | `o200k_base` | GPT-4o | 200k |
 | `gemma` | Gemma | 256k |
+| `claude_4_5` | Claude 4.5, 4.6 | estimator |
+| `claude_5` | Claude 5, Opus 4.7 and 4.8 | estimator |
 
-Only `cl100k_base` and `gemma` ship with embedded vocabularies. `p50k_base` and
-`o200k_base` define their patterns and special tokens but need a vocabulary file
-supplied via `--vocab` (CLI) or `NewFromFile` (library).
+Only `cl100k_base` and `gemma` ship with embedded vocabularies. `p50k_base` and `o200k_base` define their patterns and special tokens but need a vocabulary file supplied via `--vocab` (CLI) or `NewFromFile` (library).
+
+## Claude token counts
+
+Anthropic publishes no vocabulary for its current models. The `claude_*` encodings therefore estimate counts, instead of reproducing a segmentation. They answer offline, within about 4% of what the token counting API reports. `Encode` and `Decode` return an error rather than inventing token IDs.
+
+```go
+name, _ := tokenizer.EncodingForModel("claude-opus-5") // "claude_5"
+est, _ := tokenizer.NewAnthropicEstimator(tokenizer.FamilyClaude5)
+n, _ := est.CountTokens(text)
+total := n + est.MessageOverhead() // what count_tokens reports for a message
+```
+
+Claude 4.5/4.6 and Claude 5 use different tokenizers, so pick the flavor that matches the model. Runs of a single repeated character are estimated poorly. See [docs/anthropic-estimator.md](docs/anthropic-estimator.md).
 
 ## Features
 

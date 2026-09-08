@@ -271,6 +271,22 @@ func extractAnthropicFeatures(text string) (*anthropicFeatures, error) {
 	return f, nil
 }
 
+// The shape of the vector AnthropicFeatureVector returns, published so a
+// calibration tool can build a design matrix without depending on internals.
+// The vector holds each aggregate over every class in turn, then a constant.
+const (
+	AnthropicFeatureClasses    = int(numAnthropicClasses)
+	AnthropicFeatureAggregates = 5
+)
+
+// AnthropicASCIILetterClasses lists the class indices where the two families
+// were measured to disagree. A joint fit shares every other weight between
+// them, which is what lets the family with fewer measurements borrow the
+// other's evidence for scripts they charge identically for.
+func AnthropicASCIILetterClasses() []int {
+	return []int{int(classWordLower), int(classWordCapital), int(classWordUpper)}
+}
+
 // AnthropicFeatureVector exposes the features the fitted correction is a linear
 // function of, flattened in the order the weights are stored and ending in the
 // constant term. A calibration tool fits weights against measured counts with
@@ -280,7 +296,7 @@ func AnthropicFeatureVector(text string) ([]float64, error) {
 	if err != nil {
 		return nil, err
 	}
-	v := make([]float64, 0, 5*numAnthropicClasses+1)
+	v := make([]float64, 0, AnthropicFeatureAggregates*AnthropicFeatureClasses+1)
 	v = append(v, f.BaseTokens[:]...)
 	v = append(v, f.PreTokens[:]...)
 	v = append(v, f.Runes[:]...)

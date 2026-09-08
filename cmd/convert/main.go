@@ -66,10 +66,10 @@ func loadJSON(path string) (*Vocab, error) {
 }
 
 // loadAnthropic reads the vocabulary Anthropic publishes for Claude in
-// anthropic-tokenizer-typescript. bpe_ranks is one space-separated string: a
-// leading marker pair, then every token base64-encoded in rank order. Rank
-// zero is "!", the same first token tiktoken files carry, which is what makes
-// the marker pair identifiable as a header rather than as vocabulary.
+// anthropic-tokenizer-typescript. bpe_ranks is a space-separated string: a
+// leading marker pair, then every token base64-encoded in rank order. The
+// lowest rank is "!", the same token tiktoken files open with, which is what
+// identifies the marker pair as a header rather than as vocabulary.
 func loadAnthropic(ranks string) (*Vocab, error) {
 	const headerFields = 2
 

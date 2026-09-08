@@ -4,9 +4,8 @@ import (
 	_ "embed"
 )
 
-// The vocabularies below are committed as compressed blobs and embedded at
-// compile time. Rebuild them from their upstream sources with
-// `just regen-vocab`; regeneration is manual, never part of the build.
+// Vocabularies are committed as compressed blobs, embedded at compile time.
+// Rebuild them from upstream with `just regen-vocab`, never in the build.
 
 //go:embed cl100k_base.bin.zst
 var Cl100kBaseZst []byte
