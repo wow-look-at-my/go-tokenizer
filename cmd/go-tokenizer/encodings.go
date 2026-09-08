@@ -43,6 +43,8 @@ func writeEncodings(out io.Writer) error {
 		tok, err := tokenizer.NewWithEncoding(name)
 		var status string
 		switch {
+		case err == nil && tokenizer.Encodings[name].AnthropicEstimator:
+			status = "estimator (counts only, no encode/decode)"
 		case err == nil:
 			status = fmt.Sprintf("embedded (%d tokens)", tok.VocabSize())
 		case strings.Contains(err.Error(), "no embedded vocabulary"):
