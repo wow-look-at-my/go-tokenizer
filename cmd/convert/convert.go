@@ -10,6 +10,10 @@ import (
 	"sync"
 )
 
+// binaryFormatVersion is the BPEV revision this writer emits: token IDs and
+// merge pairs are delta-encoded varints. LoadBinary dispatches on it.
+const binaryFormatVersion = 2
+
 type Vocab struct {
 	Tokens map[string]uint32
 	Merges [][2]uint32
@@ -74,7 +78,7 @@ func WriteBinary(v *Vocab, out io.Writer) error {
 
 	// Write header
 	out.Write([]byte("BPEV"))
-	binary.Write(out, binary.LittleEndian, uint32(2)) // version 2: delta varint
+	binary.Write(out, binary.LittleEndian, uint32(binaryFormatVersion))
 	binary.Write(out, binary.LittleEndian, uint32(len(v.Tokens)))
 	binary.Write(out, binary.LittleEndian, uint32(len(lengths)))
 
