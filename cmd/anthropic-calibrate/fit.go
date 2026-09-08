@@ -7,7 +7,7 @@ import (
 	"os"
 	"sort"
 
-	tokenizer "github.com/wow-look-at-my/go-tokenizer"
+	"github.com/wow-look-at-my/go-tokenizer/tokenizer"
 )
 
 // families fixes the emission order, so a rerun gives a stable diff.
