@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/wow-look-at-my/go-tokenizer/tokenizer"
+	tokenizer "github.com/wow-look-at-my/go-tokenizer"
 )
 
 // countTokensURL is the sole authority on what these tokenizers charge.
