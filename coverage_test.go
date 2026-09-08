@@ -205,6 +205,7 @@ func TestLoadBinaryV1(t *testing.T) {
 
 }
 
+
 func TestBPEEncodeEmpty(t *testing.T) {
 	tok, _ := New()
 	tokens, err := tok.Encode("")
