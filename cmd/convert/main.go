@@ -22,7 +22,7 @@ func main() {
 
 	switch filepath.Ext(os.Args[1]) {
 	case ".json":
-		vocab, err = loadHuggingFace(os.Args[1])
+		vocab, err = loadJSON(os.Args[1])
 	case ".tiktoken":
 		vocab, err = loadTiktoken(os.Args[1])
 	default:
@@ -44,12 +44,59 @@ func main() {
 	WriteBinary(vocab, out)
 }
 
-func loadHuggingFace(path string) (*Vocab, error) {
+// loadJSON reads either JSON vocabulary dialect. HuggingFace keeps its tokens
+// under "model", while Anthropic's published tokenizer keeps ranks in a single
+// "bpe_ranks" string; the key that is present selects the reader.
+func loadJSON(path string) (*Vocab, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
+	var probe struct {
+		BPERanks string `json:"bpe_ranks"`
+	}
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return nil, err
+	}
+	if probe.BPERanks != "" {
+		return loadAnthropic(probe.BPERanks)
+	}
+	return loadHuggingFace(data)
+}
+
+// loadAnthropic reads the vocabulary Anthropic publishes for Claude in
+// anthropic-tokenizer-typescript. bpe_ranks is one space-separated string: a
+// leading marker pair, then every token base64-encoded in rank order. Rank
+// zero is "!", the same first token tiktoken files carry, which is what makes
+// the marker pair identifiable as a header rather than as vocabulary.
+func loadAnthropic(ranks string) (*Vocab, error) {
+	const headerFields = 2
+
+	fields := strings.Fields(ranks)
+	if len(fields) <= headerFields {
+		return nil, fmt.Errorf("bpe_ranks holds %d fields, too few to carry a vocabulary", len(fields))
+	}
+
+	vocab := &Vocab{Tokens: make(map[string]uint32)}
+	for i, field := range fields[headerFields:] {
+		token, err := base64.StdEncoding.DecodeString(field)
+		if err != nil {
+			return nil, fmt.Errorf("rank %d: invalid base64 %q: %w", i, field, err)
+		}
+		if _, dup := vocab.Tokens[string(token)]; dup {
+			return nil, fmt.Errorf("rank %d: token %q already has a rank", i, token)
+		}
+		vocab.Tokens[string(token)] = uint32(i)
+	}
+
+	if first := vocab.Tokens["!"]; first != 0 {
+		return nil, fmt.Errorf(`rank of "!" is %d, want the first rank: the header is not %d fields wide`, first, headerFields)
+	}
+	return vocab, nil
+}
+
+func loadHuggingFace(data []byte) (*Vocab, error) {
 	var hf struct {
 		Model struct {
 			Vocab  map[string]int `json:"vocab"`
@@ -58,6 +105,9 @@ func loadHuggingFace(path string) (*Vocab, error) {
 	}
 	if err := json.Unmarshal(data, &hf); err != nil {
 		return nil, err
+	}
+	if len(hf.Model.Vocab) == 0 {
+		return nil, fmt.Errorf("no model.vocab and no bpe_ranks: unrecognized JSON vocabulary")
 	}
 
 	vocab := &Vocab{Tokens: make(map[string]uint32)}
