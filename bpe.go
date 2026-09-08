@@ -29,40 +29,79 @@ func (b *BPE) Encode(input []byte) []int {
 	return b.encodeWithRanks(input)
 }
 
-// encodeWithRanks uses token rank as merge priority (tiktoken style)
-func (b *BPE) encodeWithRanks(input []byte) []int {
-	pieces := make([][]byte, len(input))
-	for i, by := range input {
-		pieces[i] = []byte{by}
+// unmergeable is the rank of a pair the vocabulary does not hold. Real ranks
+// are vocabulary indices, so any of them compares lower and wins the search.
+const unmergeable = int(^uint(0) >> 1)
+
+// mergeByRanks applies the tiktoken merge rule to one pre-token: repeatedly
+// merge the adjacent pair with the lowest rank until no pair is in the
+// vocabulary. It returns the piece boundaries, where piece k covers
+// input[bounds[k]:bounds[k+1]], so a caller can count them or resolve them to
+// IDs without the merge loop having to build either.
+//
+// Boundaries are offsets rather than byte slices, so no candidate pair is ever
+// copied to be looked up, and only the two ranks a merge invalidates are
+// recomputed.
+func (b *BPE) mergeByRanks(input []byte) []int {
+	bounds := make([]int, len(input)+1)
+	for i := range bounds {
+		bounds[i] = i
+	}
+	if len(input) < 2 {
+		return bounds
 	}
 
-	for len(pieces) > 1 {
-		bestIdx := -1
-		bestRank := -1
+	// rankAt reports the rank of the piece formed by joining the pieces that
+	// start at i and i+1.
+	rankAt := func(i int) int {
+		if i+2 >= len(bounds) {
+			return unmergeable
+		}
+		if rank, ok := b.vocab.Encode(input[bounds[i]:bounds[i+2]]); ok {
+			return rank
+		}
+		return unmergeable
+	}
 
-		for i := 0; i < len(pieces)-1; i++ {
-			merged := append(pieces[i], pieces[i+1]...)
-			if rank, ok := b.vocab.Encode(merged); ok {
-				if bestIdx == -1 || rank < bestRank {
-					bestIdx = i
-					bestRank = rank
-				}
+	ranks := make([]int, len(bounds))
+	for i := range ranks {
+		ranks[i] = rankAt(i)
+	}
+
+	for {
+		best, bestIdx := unmergeable, -1
+		for i := 0; i < len(bounds)-1; i++ {
+			if ranks[i] < best {
+				best, bestIdx = ranks[i], i
 			}
 		}
-
-		if bestIdx == -1 {
+		if bestIdx < 0 {
 			break
 		}
 
-		merged := append(pieces[bestIdx], pieces[bestIdx+1]...)
-		newPieces := make([][]byte, 0, len(pieces)-1)
-		newPieces = append(newPieces, pieces[:bestIdx]...)
-		newPieces = append(newPieces, merged)
-		newPieces = append(newPieces, pieces[bestIdx+2:]...)
-		pieces = newPieces
-	}
+		// Dropping the boundary after bestIdx joins that pair into one piece.
+		bounds = append(bounds[:bestIdx+1], bounds[bestIdx+2:]...)
+		ranks = append(ranks[:bestIdx+1], ranks[bestIdx+2:]...)
 
-	return b.piecesToIDs(pieces)
+		// Only the merged piece and the one before it changed neighbours.
+		ranks[bestIdx] = rankAt(bestIdx)
+		if bestIdx > 0 {
+			ranks[bestIdx-1] = rankAt(bestIdx - 1)
+		}
+	}
+	return bounds
+}
+
+// encodeWithRanks uses token rank as merge priority (tiktoken style)
+func (b *BPE) encodeWithRanks(input []byte) []int {
+	bounds := b.mergeByRanks(input)
+	result := make([]int, 0, len(bounds)-1)
+	for i := 0; i+1 < len(bounds); i++ {
+		if rank, ok := b.vocab.Encode(input[bounds[i]:bounds[i+1]]); ok {
+			result = append(result, rank)
+		}
+	}
+	return result
 }
 
 // bpeNode is an element in the linked list of tokens during BPE merging.
@@ -215,16 +254,6 @@ func (b *BPE) encodeWithMerges(input []byte) []int {
 	return result
 }
 
-func (b *BPE) piecesToIDs(pieces [][]byte) []int {
-	result := make([]int, 0, len(pieces))
-	for _, piece := range pieces {
-		if rank, ok := b.vocab.Encode(piece); ok {
-			result = append(result, rank)
-		}
-	}
-	return result
-}
-
 // CountTokens returns the number of tokens without allocating the full result
 func (b *BPE) CountTokens(input []byte) int {
 	if len(input) == 0 {
@@ -242,58 +271,7 @@ func (b *BPE) CountTokens(input []byte) int {
 }
 
 func (b *BPE) countWithRanks(input []byte) int {
-	pieceCount := len(input)
-	pieces := make([][]byte, len(input))
-	for i, by := range input {
-		pieces[i] = []byte{by}
-	}
-
-	for pieceCount > 1 {
-		bestIdx := -1
-		bestRank := -1
-
-		for i := 0; i < len(pieces)-1; i++ {
-			if pieces[i] == nil {
-				continue
-			}
-			nextIdx := -1
-			for j := i + 1; j < len(pieces); j++ {
-				if pieces[j] != nil {
-					nextIdx = j
-					break
-				}
-			}
-			if nextIdx == -1 {
-				break
-			}
-
-			merged := append(pieces[i], pieces[nextIdx]...)
-			if rank, ok := b.vocab.Encode(merged); ok {
-				if bestIdx == -1 || rank < bestRank {
-					bestIdx = i
-					bestRank = rank
-				}
-			}
-		}
-
-		if bestIdx == -1 {
-			break
-		}
-
-		nextIdx := -1
-		for j := bestIdx + 1; j < len(pieces); j++ {
-			if pieces[j] != nil {
-				nextIdx = j
-				break
-			}
-		}
-
-		pieces[bestIdx] = append(pieces[bestIdx], pieces[nextIdx]...)
-		pieces[nextIdx] = nil
-		pieceCount--
-	}
-
-	return pieceCount
+	return len(b.mergeByRanks(input)) - 1
 }
 
 func (b *BPE) countWithMerges(input []byte) int {

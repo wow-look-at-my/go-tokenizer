@@ -1,6 +1,33 @@
 # go-tokenizer
 
-A Go library for BPE (Byte Pair Encoding) tokenization, compatible with OpenAI's tiktoken and Google's Gemma.
+A Go library for BPE (Byte Pair Encoding) tokenization, compatible with OpenAI's tiktoken and Google's Gemma, with offline estimators for Anthropic's Claude.
+
+| encoding | tokenizer | error against reference | load | throughput |
+| --- | --- | --- | --- | --- |
+| `cl100k_base` | published vocabulary, exact BPE | exact | 101 ms | 5.8 MB/s |
+| `gemma` | published vocabulary, exact BPE | exact | 554 ms | 1.4 MB/s |
+| `claude_4_5` | estimator over `cl100k_base` | **4.2%** mean, 3.0% median, 11.0% p90 | shares `cl100k_base` | 6.0 MB/s |
+| `claude_5` | estimator over `cl100k_base` | **4.2%** mean, 3.4% median, 9.5% p90 | shares `cl100k_base` | 5.9 MB/s |
+
+Error is measured against Anthropic's `count_tokens` endpoint, over text meant to stand for real input. `cl100k_base` and `gemma` reproduce vocabularies their owners publish, so they are exact by construction and have no error to report. Throughput counts a 0.84 MB mixed corpus in process, best of several runs on a shared machine.
+
+These numbers are worse in two places, and both are measured rather than hidden:
+
+| case | `claude_4_5` | `claude_5` |
+| --- | --- | --- |
+| runs of a single repeated character | 53% mean, 21% median | 37% mean |
+| uncorrected `cl100k_base`, for comparison | 19.7% mean | 35.6% mean |
+
+A run of one repeated character costs whatever long single-character tokens a vocabulary holds. That is the part Anthropic does not publish. [docs/anthropic-estimator.md](docs/anthropic-estimator.md) records the method, the full error tables, and this limit.
+
+Against [`rohangpta/ctoc`](https://github.com/rohangpta/ctoc), which mined a vocabulary through about 276,000 API probes, on the same corpus:
+
+| | `claude_4_5` | `claude_5` | throughput |
+| --- | --- | --- | --- |
+| this library | **4.2%** | **4.2%** | 4.7 MB/s |
+| ctoc | 9.9% | 26.5% | **20.1 MB/s** |
+
+ctoc is the faster of the two, by roughly four times. It matches greedily against a trie, which is less work than BPE merges. It is also a C++ binary. Its accuracy on Claude 5 reflects a vocabulary mined before that tokenizer existed.
 
 ## Installation
 
@@ -154,10 +181,23 @@ p50k_base    not embedded
 | `p50k_base` | text-davinci-003 | 50k |
 | `o200k_base` | GPT-4o | 200k |
 | `gemma` | Gemma | 256k |
+| `claude_4_5` | Claude 4.5, 4.6 | estimator |
+| `claude_5` | Claude 5, Opus 4.7 and 4.8 | estimator |
 
-Only `cl100k_base` and `gemma` ship with embedded vocabularies. `p50k_base` and
-`o200k_base` define their patterns and special tokens but need a vocabulary file
-supplied via `--vocab` (CLI) or `NewFromFile` (library).
+Only `cl100k_base` and `gemma` ship with embedded vocabularies. `p50k_base` and `o200k_base` define their patterns and special tokens but need a vocabulary file supplied via `--vocab` (CLI) or `NewFromFile` (library).
+
+## Claude token counts
+
+Anthropic publishes no vocabulary for its current models. The `claude_*` encodings therefore estimate counts, instead of reproducing a segmentation. They answer offline, within about 4% of what the token counting API reports. `Encode` and `Decode` return an error rather than inventing token IDs.
+
+```go
+name, _ := tokenizer.EncodingForModel("claude-opus-5") // "claude_5"
+est, _ := tokenizer.NewAnthropicEstimator(tokenizer.FamilyClaude5)
+n, _ := est.CountTokens(text)
+total := n + est.MessageOverhead() // what count_tokens reports for a message
+```
+
+Claude 4.5/4.6 and Claude 5 use different tokenizers, so pick the flavor that matches the model. Runs of a single repeated character are estimated poorly. See [docs/anthropic-estimator.md](docs/anthropic-estimator.md).
 
 ## Features
 
