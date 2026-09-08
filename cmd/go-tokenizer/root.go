@@ -12,65 +12,81 @@ import (
 	tokenizer "github.com/wow-look-at-my/go-tokenizer"
 )
 
-// Persistent flags shared by every subcommand.
-var (
-	flagEncoding string // named encoding to use (cl100k_base, gemma, ...)
-	flagVocab    string // path to a custom .tiktoken vocabulary file
-	flagPattern  string // custom pre-tokenization pattern for --vocab
-)
-
-// inputFile is bound by the subcommands that read text input (encode, count).
-var inputFile string
-
-var rootCmd = &cobra.Command{
-	Use:   "go-tokenizer",
-	Short: "BPE tokenizer for OpenAI tiktoken and Google Gemma encodings",
-	Long: `go-tokenizer encodes text into BPE token IDs, decodes token IDs back into
-text, and counts tokens using OpenAI tiktoken-compatible and Google Gemma
-encodings.
-
-Text is read from positional arguments, a file (--input), or standard input.`,
-	SilenceUsage:  true,
-	SilenceErrors: true,
+// options carries the flag values of a single command invocation. The command
+// tree binds flags here rather than into package variables, so concurrent
+// invocations inside a process never share flag state.
+type options struct {
+	encoding string // named encoding to use (cl100k_base, gemma, claude, ...)
+	vocab    string // path to a custom .tiktoken vocabulary file
+	pattern  string // custom pre-tokenization pattern for --vocab
+	input    string // read text from this file instead of args/stdin
 }
 
-// Execute runs the root command and exits non-zero on error.
+// subcommands holds a constructor per subcommand, appended by its own init().
+var subcommands []func(*options) *cobra.Command
+
+// register adds a subcommand constructor to the command tree.
+func register(newCmd func(*options) *cobra.Command) {
+	subcommands = append(subcommands, newCmd)
+}
+
+// newRootCmd builds a complete command tree with its own flag storage.
+func newRootCmd() *cobra.Command {
+	opts := &options{}
+
+	root := &cobra.Command{
+		Use:   "go-tokenizer",
+		Short: "BPE tokenizer for OpenAI tiktoken, Google Gemma, and Anthropic Claude encodings",
+		Long: `go-tokenizer encodes text into BPE token IDs, decodes token IDs back into
+text, and counts tokens using OpenAI tiktoken-compatible, Google Gemma, and
+Anthropic Claude encodings.
+
+Text is read from positional arguments, a file (--input), or standard input.`,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+
+	pf := root.PersistentFlags()
+	pf.StringVarP(&opts.encoding, "encoding", "e", tokenizer.DefaultEncoding, "named encoding to use")
+	pf.StringVar(&opts.vocab, "vocab", "", "path to a custom .tiktoken vocabulary file (overrides --encoding)")
+	pf.StringVar(&opts.pattern, "pattern", "", "custom pre-tokenization regex (only used with --vocab)")
+
+	for _, newCmd := range subcommands {
+		root.AddCommand(newCmd(opts))
+	}
+	return root
+}
+
+// Execute runs the root command and reports a failure in the exit status.
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
+	if err := newRootCmd().Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 }
 
-func init() {
-	pf := rootCmd.PersistentFlags()
-	pf.StringVarP(&flagEncoding, "encoding", "e", tokenizer.DefaultEncoding, "named encoding to use")
-	pf.StringVar(&flagVocab, "vocab", "", "path to a custom .tiktoken vocabulary file (overrides --encoding)")
-	pf.StringVar(&flagPattern, "pattern", "", "custom pre-tokenization regex (only used with --vocab)")
-}
-
 // newTokenizer builds a tokenizer from the shared --encoding / --vocab flags.
-func newTokenizer() (tokenizer.Tokenizer, error) {
-	if flagVocab != "" {
+func (o *options) newTokenizer() (tokenizer.Tokenizer, error) {
+	if o.vocab != "" {
 		var opts []tokenizer.Option
-		if flagPattern != "" {
-			opts = append(opts, tokenizer.WithPattern(flagPattern))
+		if o.pattern != "" {
+			opts = append(opts, tokenizer.WithPattern(o.pattern))
 		}
-		return tokenizer.NewFromFile(flagVocab, opts...)
+		return tokenizer.NewFromFile(o.vocab, opts...)
 	}
-	return tokenizer.NewWithEncoding(flagEncoding)
+	return tokenizer.NewWithEncoding(o.encoding)
 }
 
 // addInputFlag registers the shared -i/--input flag on a command.
-func addInputFlag(cmd *cobra.Command) {
-	cmd.Flags().StringVarP(&inputFile, "input", "i", "", "read input from this file instead of args/stdin")
+func (o *options) addInputFlag(cmd *cobra.Command) {
+	cmd.Flags().StringVarP(&o.input, "input", "i", "", "read input from this file instead of args/stdin")
 }
 
 // readText resolves the text to operate on: --input file, else positional
 // arguments joined by spaces, else all of standard input.
-func readText(cmd *cobra.Command, args []string) (string, error) {
-	if inputFile != "" {
-		b, err := os.ReadFile(inputFile)
+func (o *options) readText(cmd *cobra.Command, args []string) (string, error) {
+	if o.input != "" {
+		b, err := os.ReadFile(o.input)
 		if err != nil {
 			return "", err
 		}
