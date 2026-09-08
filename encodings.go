@@ -10,6 +10,11 @@ type EncodingConfig struct {
 	IsBinary      bool                // true if vocab is in binary format
 	Normalize     func(string) string // text normalization before encoding
 	Denormalize   func(string) string // text denormalization after decoding
+
+	// AnthropicEstimator marks an encoding that estimates token counts for a
+	// Claude model family rather than reproducing a published vocabulary. It
+	// counts and does not encode; see anthropic.go.
+	AnthropicEstimator bool
 }
 
 // cl100k_base pattern from OpenAI tiktoken
@@ -88,6 +93,14 @@ var Encodings = map[string]EncodingConfig{
 		IsBinary:      true,
 		Normalize:     gemmaNormalize,
 		Denormalize:   gemmaDenormalize,
+	},
+	string(FamilyClaude45): {
+		Name:               string(FamilyClaude45),
+		AnthropicEstimator: true,
+	},
+	string(FamilyClaude5): {
+		Name:               string(FamilyClaude5),
+		AnthropicEstimator: true,
 	},
 }
 

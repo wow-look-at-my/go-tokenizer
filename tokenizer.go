@@ -80,6 +80,10 @@ func NewWithEncoding(name string) (Tokenizer, error) {
 		return nil, fmt.Errorf("unknown encoding: %s", name)
 	}
 
+	if config.AnthropicEstimator {
+		return NewAnthropicEstimator(AnthropicFamily(name))
+	}
+
 	// Load embedded vocabulary
 	decoder, decErr := zstd.NewReader(nil)
 	if decErr != nil {
