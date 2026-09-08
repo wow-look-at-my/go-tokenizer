@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	tokenizer "github.com/wow-look-at-my/go-tokenizer"
+	"github.com/wow-look-at-my/go-tokenizer/tokenizer"
 )
 
 // options carries the flag values of a single command invocation. The command
