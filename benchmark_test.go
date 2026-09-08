@@ -352,15 +352,27 @@ func BenchmarkEncodeCacheWarm(b *testing.B) {
 func BenchmarkEncodeCacheCold(b *testing.B) {
 	text := englishProse(1_000)
 
+	// Loading a vocabulary costs tens of milliseconds. Rebuilding the whole
+	// tokenizer per iteration starves this benchmark: the timer is stopped for
+	// the rebuild, so the measured work stays fast and b.N keeps climbing,
+	// while every iteration still pays that load in wall time. The run then
+	// grows without bound and takes the CI job's timeout with it.
+	//
+	// Share the vocabulary and give each iteration a fresh cache instead, which
+	// is the only part of a tokenizer that "cold" refers to here.
+	warm, err := New()
+	require.Nil(b, err)
+	shared := warm.(*tokenizer)
+
 	b.SetBytes(int64(len(text)))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		tok, err := New()
+		cold, err := newTokenizer(shared.vocab, cl100kPattern, cl100kSpecialTokens, nil, nil, 10000)
 		require.Nil(b, err)
 
 		b.StartTimer()
-		_, _ = tok.Encode(text)
+		_, _ = cold.Encode(text)
 	}
 }
 
