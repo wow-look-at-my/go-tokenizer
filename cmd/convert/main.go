@@ -2,9 +2,11 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/wow-look-at-my/go-containers/set"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -96,13 +98,52 @@ func loadAnthropic(ranks string) (*Vocab, error) {
 	return vocab, nil
 }
 
-func loadHuggingFace(data []byte) (*Vocab, error) {
-	var hf struct {
-		Model struct {
-			Vocab  map[string]int `json:"vocab"`
-			Merges [][]string     `json:"merges"`
-		} `json:"model"`
+// hfMerge is one merge rule.
+type hfMerge [2]string
+
+func (m *hfMerge) UnmarshalJSON(data []byte) error {
+	var pair []string
+	if err := json.Unmarshal(data, &pair); err == nil {
+		if len(pair) != 2 {
+			return fmt.Errorf("merge %s: want 2 parts, got %d", data, len(pair))
+		}
+		*m = hfMerge{pair[0], pair[1]}
+		return nil
 	}
+	var joined string
+	if err := json.Unmarshal(data, &joined); err != nil {
+		return fmt.Errorf("merge %s: neither an array nor a string", data)
+	}
+	left, right, ok := strings.Cut(joined, " ")
+	if !ok {
+		return fmt.Errorf("merge %q: no space between the halves", joined)
+	}
+	*m = hfMerge{left, right}
+	return nil
+}
+
+type hfTokenizer struct {
+	Model struct {
+		Vocab  map[string]int `json:"vocab"`
+		Merges []hfMerge      `json:"merges"`
+	} `json:"model"`
+	PreTokenizer json.RawMessage `json:"pre_tokenizer"`
+	AddedTokens  []struct {
+		ID      int    `json:"id"`
+		Content string `json:"content"`
+	} `json:"added_tokens"`
+}
+
+// isByteLevel reports whether the pre-tokenizer chain holds a ByteLevel step.
+// Such a vocabulary spells each byte as a printable rune, which the converter
+// must map back to the raw byte.
+func (hf *hfTokenizer) isByteLevel() bool {
+	return bytes.Contains(hf.PreTokenizer, []byte(`"type":"ByteLevel"`)) ||
+		bytes.Contains(hf.PreTokenizer, []byte(`"type": "ByteLevel"`))
+}
+
+func loadHuggingFace(data []byte) (*Vocab, error) {
+	var hf hfTokenizer
 	if err := json.Unmarshal(data, &hf); err != nil {
 		return nil, err
 	}
@@ -111,19 +152,73 @@ func loadHuggingFace(data []byte) (*Vocab, error) {
 	}
 
 	vocab := &Vocab{Tokens: make(map[string]uint32)}
-	for token, id := range hf.Model.Vocab {
-		vocab.Tokens[token] = uint32(id)
+	byteLevel := hf.isByteLevel()
+
+	// Added tokens match on their literal text before any splitting.
+	if len(hf.AddedTokens) > 0 {
+		vocab.Added = make(map[string]uint32, len(hf.AddedTokens))
+	}
+	added := set.New[string]()
+	for _, t := range hf.AddedTokens {
+		vocab.Added[t.Content] = uint32(t.ID)
+		added.Add(t.Content)
 	}
 
-	for _, merge := range hf.Model.Merges {
+	for token, id := range hf.Model.Vocab {
+		if added.Contains(token) {
+			continue
+		}
+		raw := token
+		if byteLevel {
+			b, err := byteLevelDecode(token)
+			if err != nil {
+				return nil, fmt.Errorf("token %d: %w", id, err)
+			}
+			raw = string(b)
+		}
+		vocab.Tokens[raw] = uint32(id)
+	}
+
+	for i, merge := range hf.Model.Merges {
 		id1, ok1 := hf.Model.Vocab[merge[0]]
 		id2, ok2 := hf.Model.Vocab[merge[1]]
-		if ok1 && ok2 {
-			vocab.Merges = append(vocab.Merges, [2]uint32{uint32(id1), uint32(id2)})
+		if !ok1 || !ok2 {
+			if byteLevel {
+				return nil, fmt.Errorf("merge %d (%q %q) names a token outside the vocabulary", i, merge[0], merge[1])
+			}
+			continue
 		}
+		vocab.Merges = append(vocab.Merges, [2]uint32{uint32(id1), uint32(id2)})
 	}
 
 	return vocab, nil
+}
+
+var byteLevelRunes = func() map[rune]byte {
+	m := make(map[rune]byte, 256)
+	next := rune(256)
+	for b := 0; b < 256; b++ {
+		if ('!' <= b && b <= '~') || (0xA1 <= b && b <= 0xAC) || (0xAE <= b && b <= 0xFF) {
+			m[rune(b)] = byte(b)
+			continue
+		}
+		m[next] = byte(b)
+		next++
+	}
+	return m
+}()
+
+// byteLevelDecode maps a byte-level token spelling back to its raw bytes.
+func byteLevelDecode(token string) ([]byte, error) {
+	out := make([]byte, 0, len(token))
+	for _, r := range token {
+		b, ok := byteLevelRunes[r]
+		if !ok {
+			return nil, fmt.Errorf("%q holds %U, which is not a byte-level rune", token, r)
+		}
+		out = append(out, b)
+	}
+	return out, nil
 }
 
 func loadTiktoken(path string) (*Vocab, error) {

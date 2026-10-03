@@ -1,17 +1,18 @@
 # go-tokenizer
 
-A Go library for BPE (Byte Pair Encoding) tokenization, compatible with OpenAI's tiktoken and Google's Gemma, with offline estimators for Anthropic's Claude.
+A Go library for BPE (Byte Pair Encoding) tokenization, compatible with OpenAI's tiktoken, Google's Gemma and DeepSeek, with offline estimators for Anthropic's Claude.
 
 | encoding | tokenizer | error against reference | load | throughput |
 | --- | --- | --- | --- | --- |
 | `cl100k_base` | published vocabulary, exact BPE | exact | 101 ms | 5.8 MB/s |
 | `gemma` | published vocabulary, exact BPE | exact | 554 ms | 1.4 MB/s |
+| `deepseek` | published vocabulary, exact byte-level BPE | exact, checked against the API | 61 ms | 15 MB/s |
 | `claude_4_5` | estimator over `cl100k_base` | **4.2%** mean, 3.0% median, 11.0% p90 | shares `cl100k_base` | 6.0 MB/s |
 | `claude_5` | estimator over `cl100k_base` | **4.2%** mean, 3.4% median, 9.5% p90 | shares `cl100k_base` | 5.9 MB/s |
 
-Error is measured against Anthropic's `count_tokens` endpoint, over text meant to stand for real input. `cl100k_base` and `gemma` reproduce vocabularies their owners publish, so they are exact by construction and have no error to report. Throughput counts a 0.84 MB mixed corpus in process, best of several runs on a shared machine.
+Error is measured against Anthropic's `count_tokens` endpoint, over text meant to stand for real input. `cl100k_base`, `gemma` and `deepseek` reproduce vocabularies their owners publish. As a result, they are exact by construction and have no error to report. Throughput counts a 0.84 MB mixed corpus in process, best of several runs on a shared machine. The `deepseek` row comes from `BenchmarkNewTokenizer` and `BenchmarkEncodeCompareEncodings` on another machine. In that run, `cl100k_base` loaded twice as fast and encoded half again as fast.
 
-These numbers are worse in two places, and both are measured rather than hidden:
+These numbers are worse in multiple places, and both are measured rather than hidden:
 
 | case | `claude_4_5` | `claude_5` |
 | --- | --- | --- |
@@ -27,7 +28,7 @@ Against [`rohangpta/ctoc`](https://github.com/rohangpta/ctoc), which mined a voc
 | this library | **4.2%** | **4.2%** | 4.7 MB/s |
 | ctoc | 9.9% | 26.5% | **20.1 MB/s** |
 
-ctoc is the faster of the two, by roughly four times. It matches greedily against a trie, which is less work than BPE merges. It is also a C++ binary. Its accuracy on Claude 5 reflects a vocabulary mined before that tokenizer existed.
+ctoc is the faster of the two, by a few times. It matches greedily against a trie, which is less work than BPE merges. It is also a C++ binary. Its accuracy on Claude 5 reflects a vocabulary mined before that tokenizer existed.
 
 ## Installation
 
@@ -85,6 +86,14 @@ if err != nil {
 
 tokens, _ := tok.Encode("Hello World")
 ```
+
+### DeepSeek
+
+```go
+tok, err := tokenizer.NewWithEncoding("deepseek")
+```
+
+One encoding covers DeepSeek V3 through V4.1, which share a vocabulary. `Encode` adds no beginning-of-sentence token. [docs/deepseek.md](docs/deepseek.md) covers the verification against HuggingFace and the DeepSeek API.
 
 ### Custom Vocabulary
 
@@ -156,6 +165,7 @@ $ go-tokenizer encode --encoding gemma "Hello World"
 $ go-tokenizer encodings
 ENCODING     STATUS
 cl100k_base  embedded (100261 tokens) (default)
+deepseek     embedded (129280 tokens)
 gemma        embedded (262144 tokens)
 o200k_base   not embedded
 p50k_base    not embedded
@@ -181,10 +191,11 @@ p50k_base    not embedded
 | `p50k_base` | text-davinci-003 | 50k |
 | `o200k_base` | GPT-4o | 200k |
 | `gemma` | Gemma | 256k |
+| `deepseek` | DeepSeek V3, V3.2, V4, V4.1 | 129k |
 | `claude_4_5` | Claude 4.5, 4.6 | estimator |
 | `claude_5` | Claude 5, Opus 4.7 and 4.8 | estimator |
 
-Only `cl100k_base` and `gemma` ship with embedded vocabularies. `p50k_base` and `o200k_base` define their patterns and special tokens but need a vocabulary file supplied via `--vocab` (CLI) or `NewFromFile` (library).
+Only `cl100k_base`, `gemma` and `deepseek` ship with embedded vocabularies. `p50k_base` and `o200k_base` define their patterns and special tokens but need a vocabulary file supplied via `--vocab` (CLI) or `NewFromFile` (library).
 
 ## Claude token counts
 
@@ -197,7 +208,7 @@ n, _ := est.CountTokens(text)
 total := n + est.MessageOverhead() // what count_tokens reports for a message
 ```
 
-Claude 4.5/4.6 and Claude 5 use different tokenizers, so pick the flavor that matches the model. Runs of a single repeated character are estimated poorly. See [docs/anthropic-estimator.md](docs/anthropic-estimator.md).
+Claude 4.5/4.6 and Claude multiple use different tokenizers, so pick the flavor that matches the model. Runs of a single repeated character are estimated poorly. See [docs/anthropic-estimator.md](docs/anthropic-estimator.md).
 
 ## Features
 

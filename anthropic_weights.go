@@ -1,13 +1,8 @@
 package tokenizer
 
-// Fitted data for the Anthropic estimator. Regenerate it with
-// `cmd/anthropic-calibrate`, which measures counts against the token counting
-// API and refits; see docs/anthropic-estimator.md for the procedure and the
-// error the current fit achieves.
+// Fitted data for the Anthropic estimator.
 
-// anthropicBaseEncoding is the embedded encoding whose output the correction
-// adjusts. It is not Anthropic's tokenizer and is not claimed to be: it is a
-// well-behaved BPE over the same text, and the correction carries the rest.
+// anthropicBaseEncoding is the embedded encoding whose output the correction adjusts.
 const anthropicBaseEncoding = "cl100k_base"
 
 // anthropicFamilyByModel maps a measured model id onto its tokenizer family.
@@ -37,7 +32,7 @@ var anthropicOverheadByFamily = map[AnthropicFamily]int{
 
 // anthropicWeightsByFamily holds the fitted correction per family.
 //
-// The two families were fitted together against one design matrix. Every class
+// Both families were fitted together against one design matrix. Every class
 // outside runs of ASCII letters shares a single set of weights, because measured
 // counts are identical there; only the ASCII-letter classes carry a per-family
 // difference. That sharing is why the family with far fewer measurements still

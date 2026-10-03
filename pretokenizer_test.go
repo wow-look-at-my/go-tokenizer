@@ -73,7 +73,7 @@ var scannerCases = []string{
 }
 
 // TestFastScanMatchesRegexp is the contract that lets the scanner replace the
-// regex engine: for every input, the two must split identically. A divergence
+// regex engine: for every input, both must split identically. A divergence
 // would silently change token counts everywhere the cl100k pattern is used.
 func TestFastScanMatchesRegexp(t *testing.T) {
 	re, err := regexp2.Compile(cl100kPattern, regexp2.None)

@@ -40,7 +40,7 @@ The embedded `cl100k_base` BPE runs over the text. A correction fitted per chara
 
 Each pre-token goes into a class by script and case. A word splits by case into lower-case, capitalized and upper-case. It splits by script into ASCII, non-ASCII Latin, Cyrillic or Greek, Han or Kana, Hangul, and anything else. The remaining classes are number, punctuation, non-ASCII symbol, space run, line-break run, and single-character run.
 
-Within a class the estimate is linear in four aggregates. Those are the tokens the base encoding spent, the pre-token count, the rune count, and the rune count past each of two length breakpoints. The breakpoints exist because a single rate per rune cannot fit a short word, an indent, and a four-hundred-character run at once.
+Within a class the estimate is linear in multiple aggregates. Those are the tokens the base encoding spent, the pre-token count, the rune count, and the rune count past each of two length breakpoints. The breakpoints exist because a single rate per rune cannot fit a short word, an indent, and a four-hundred-character run at once.
 
 Both families are fitted together, against one design matrix. Every weight outside the ASCII-letter classes is shared, because the measurements say the families charge identically there. Only the ASCII-letter classes carry a per-family difference.
 
@@ -65,7 +65,7 @@ The numbers below come from API-measured counts. The text stands for real input.
 
 A run of a single repeated character stays inaccurate. The tests bound those runs separately, rather than hiding them in the average.
 
-The cost of such a run turns on which long single-character tokens a vocabulary holds. That is exactly what stays unpublished. The table below measures runs of four hundred characters, against what the base encoding spends.
+The cost of such a run turns on which long single-character tokens a vocabulary holds. That is exactly what stays unpublished. The table below measures runs of a few hundred characters, against what the base encoding spends.
 
 | input | ratio to base encoding |
 | --- | --- |
