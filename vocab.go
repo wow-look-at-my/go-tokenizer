@@ -10,8 +10,7 @@ import (
 	"strings"
 )
 
-// mergePairKey packs two token IDs into a single uint64 for use as a map key.
-// This avoids the fmt.Sprintf allocation that was the dominant cost in BPE encoding.
+// mergePairKey packs token IDs into a single uint64 for use as a map key.
 func mergePairKey(id1, id2 int) uint64 {
 	return uint64(uint32(id1))<<32 | uint64(uint32(id2))
 }
@@ -21,6 +20,7 @@ type Vocabulary struct {
 	encoder map[string]int // token bytes -> rank
 	decoder map[int][]byte // rank -> token bytes
 	merges  map[uint64]int // mergePairKey(id1,id2) -> merge priority (lower = higher priority)
+	added   map[string]int
 }
 
 // NewVocabulary creates an empty vocabulary
@@ -109,7 +109,7 @@ func LoadBinary(data []byte) (*Vocabulary, error) {
 	switch version {
 	case 1:
 		pos = loadBinaryV1(data, pos, numGroups, v)
-	case 2:
+	case 2, 3:
 		pos = loadBinaryV2(data, pos, numGroups, v)
 	default:
 		return nil, fmt.Errorf("unsupported version: %d", version)
@@ -141,7 +141,27 @@ func LoadBinary(data []byte) (*Vocabulary, error) {
 		}
 	}
 
+	if version >= 3 {
+		var numAdded uint32
+		numAdded, pos = readVarint(data, pos)
+		v.added = make(map[string]int, numAdded)
+		for i := uint32(0); i < numAdded; i++ {
+			var id, n uint32
+			id, pos = readVarint(data, pos)
+			n, pos = readVarint(data, pos)
+			v.added[string(data[pos:pos+int(n)])] = int(id)
+			pos += int(n)
+		}
+		v.AddSpecialTokens(v.added)
+	}
+
 	return v, nil
+}
+
+// AddedTokens returns the tokens the vocabulary file marks for literal
+// matching before pre-tokenization, keyed by text.
+func (v *Vocabulary) AddedTokens() map[string]int {
+	return v.added
 }
 
 func loadBinaryV1(data []byte, pos int, numGroups uint32, v *Vocabulary) int {
@@ -190,7 +210,7 @@ func loadBinaryV2(data []byte, pos int, numGroups uint32, v *Vocabulary) int {
 }
 
 // MergePriority returns the merge priority for a pair of token IDs
-// Lower value = higher priority. Returns -1 if no merge exists.
+// Lower value = higher priority.
 func (v *Vocabulary) MergePriority(id1, id2 int) (int, bool) {
 	priority, ok := v.merges[mergePairKey(id1, id2)]
 	return priority, ok
@@ -201,7 +221,6 @@ func (v *Vocabulary) HasMerges() bool {
 	return len(v.merges) > 0
 }
 
-// Encode returns the rank for a token, or -1 if not found
 func (v *Vocabulary) Encode(token []byte) (int, bool) {
 	rank, ok := v.encoder[string(token)]
 	return rank, ok

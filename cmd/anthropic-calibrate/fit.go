@@ -17,9 +17,7 @@ var families = []tokenizer.AnthropicFamily{tokenizer.FamilyClaude45, tokenizer.F
 var aggregateNames = []string{"Base", "Pre", "Rune", "LongRune", "HugeRune"}
 
 // adversarial marks shapes built to break the estimator rather than to stand
-// for real input. Their cost turns on which long single-character tokens a
-// vocabulary holds, which Anthropic does not publish, so they are reported
-// apart from the accuracy ordinary text gets.
+// for real input.
 func adversarial(category string) bool {
 	return category == "repetition" || category == "whitespace"
 }
@@ -352,8 +350,7 @@ func runReport(args []string) error {
 		estimators[family] = est
 	}
 
-	// Score through the estimator's own entry point, so this reports what a
-	// caller actually gets rather than what a fit believed it would give.
+	// Score through the estimator's own entry point.
 	var failed error
 	scoreSamples(os.Stdout, samples, func(s sample) float64 {
 		n, err := estimators[s.family].CountTokens(s.text)

@@ -15,10 +15,8 @@ import (
 	"github.com/wow-look-at-my/go-containers/set"
 )
 
-// countCase is one row of testdata/anthropic-counts.jsonl: a text and what the
-// token counting API reported for it, per family. The counts are measurements,
-// not expectations produced by this package, so a change that drifts away from
-// Anthropic's tokenizer fails here.
+// countCase is one row of testdata/anthropic-counts.jsonl: a text and what
+// the token counting API reported for it, per family.
 type countCase struct {
 	ID        string         `json:"id"`
 	Category  string         `json:"category"`
@@ -26,10 +24,7 @@ type countCase struct {
 	APICounts map[string]int `json:"apiCounts"`
 }
 
-// adversarialCategories hold shapes built to break the estimator rather than to
-// represent real input. Their cost turns on which long single-character tokens
-// each vocabulary happens to contain, which Anthropic does not publish, so they
-// carry their own looser bound. docs/anthropic-estimator.md explains why.
+// adversarialCategories hold shapes built to break the estimator rather than to represent real input.
 var adversarialCategories = set.Of[string]("repetition", "whitespace")
 
 func loadCountCases(t *testing.T) []countCase {
@@ -89,8 +84,7 @@ func TestAnthropicEstimatorAccuracy(t *testing.T) {
 				got, err := est.CountTokens(c.Text)
 				require.NoError(t, err, c.ID)
 
-				// The fixture stores what the API reports for a whole message,
-				// so the per-message overhead comes off before comparing.
+				// The fixture stores what the API reports for a whole message.
 				errPct := math.Abs(float64(got+est.MessageOverhead()-want)) / float64(want) * 100
 				if adversarialCategories.Contains(c.Category) {
 					adversarial = append(adversarial, errPct)
@@ -151,8 +145,8 @@ func TestAnthropicEstimatorBeatsBaseEncoding(t *testing.T) {
 }
 
 // TestAnthropicFamiliesDisagreeOnASCII records the measurement that motivates
-// separate flavors: the two tokenizers charge differently for ASCII letters.
-// One flavor for both would be wrong for whichever it was not fitted to.
+// separate flavors: both tokenizers charge differently for ASCII letters. One
+// flavor for both would be wrong for whichever it was not fitted to.
 func TestAnthropicFamiliesDisagreeOnASCII(t *testing.T) {
 	older, err := NewAnthropicEstimator(FamilyClaude45)
 	require.NoError(t, err)

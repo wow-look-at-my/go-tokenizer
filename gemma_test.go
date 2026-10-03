@@ -19,11 +19,9 @@ func TestGemmaTokenMappings(t *testing.T) {
 	tok, err := NewWithEncoding("gemma")
 	require.Nil(t, err)
 
-	// Space should encode to ▁ token (236743) after normalization
 	spaceTokens, _ := tok.Encode(" ")
 	assert.False(t, len(spaceTokens) != 1 || spaceTokens[0] != 236743)
 
-	// ▁ should also encode to token 236743
 	underscoreTokens, _ := tok.Encode("▁")
 	assert.False(t, len(underscoreTokens) != 1 || underscoreTokens[0] != 236743)
 
