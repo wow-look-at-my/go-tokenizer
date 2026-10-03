@@ -10,18 +10,19 @@ go-safe-build
 
 ## Architecture
 
-This is a Go BPE (Byte Pair Encoding) tokenizer library supporting OpenAI's tiktoken encodings and Google's Gemma.
+This is a Go BPE (Byte Pair Encoding) tokenizer library supporting OpenAI's tiktoken encodings, Google's Gemma and DeepSeek.
 
 ### Core Components
 
 - **tokenizer.go** - Main `Tokenizer` interface with `Encode`, `Decode`, `CountTokens`. Uses functional options pattern (`WithPattern`, `WithCacheSize`, etc.)
-- **bpe.go** - BPE algorithm with two modes:
+- **bpe.go** - BPE algorithm with multiple modes:
   - `encodeWithRanks` - tiktoken style, uses token rank as merge priority
   - `encodeWithMerges` - HuggingFace/SentencePiece style, uses explicit merge rules
 - **vocab.go** - Vocabulary loading from tiktoken format (base64 text) or binary format
 - **pretokenizer.go** - Text splitting before BPE. `regexp2` handles an arbitrary pattern. The cl100k pattern takes a hand-written scanner instead, because backtracking dominated the cost of counting. `TestFastScanMatchesRegexp` holds the two to identical output.
-- **encodings.go** - Encoding configs (cl100k_base, p50k_base, o200k_base, gemma, claude_4_5, claude_5) with patterns and special tokens
-- **anthropic.go** - Offline estimators for Anthropic's unpublished tokenizers. `claude_4_5` and `claude_5` are separate flavors because measurement found two live tokenizers that differ only on ASCII letters. They count and refuse to encode, since no vocabulary exists to give IDs from. See docs/anthropic-estimator.md for the method, the measured error, and how to refit.
+- **encodings.go** - Encoding configs (cl100k_base, p50k_base, o200k_base, gemma, deepseek, claude_4_5, claude_5) with patterns and special tokens
+- **anthropic.go** - Offline estimators for Anthropic's unpublished tokenizers. `claude_4_5` and `claude_5` are separate flavors because measurement found live tokenizers that differ only on ASCII letters. They count and refuse to encode, since no vocabulary exists to give IDs from. See docs/anthropic-estimator.md for the method, the measured error, and how to refit.
+- **deepseek.go / hfclasses.go** - The `deepseek` encoding. Byte-level BPE from DeepSeek's `tokenizer.json`, pre-tokenized by a hand scanner over `hfclasses.txt`, the Unicode classes of HuggingFace tokenizers. Go's own tables are newer and split some code points differently. See docs/deepseek.md for the verification against HuggingFace and the API.
 - **cmd/anthropic-calibrate/** - Maintenance command that measures a corpus against the token counting API, refits `anthropic_weights.go`, and scores the shipped weights. Never invoked by the library or the build.
 
 ### Command-line tools
@@ -39,12 +40,9 @@ This is a Go BPE (Byte Pair Encoding) tokenizer library supporting OpenAI's tikt
 The `embed/` package embeds vocabulary files at compile time:
 - `cl100k_base.bin.zst` - GPT-4 encoding (binary format, zstd-compressed)
 - `gemma.bin.zst` - Gemma encoding (binary format with merges, zstd-compressed)
+- `deepseek.bin.zst` - DeepSeek encoding (binary format version 3, which adds the literal-match added tokens)
 
-These blobs are committed to the repo. They are regenerated from upstream sources
-(OpenAI's published `cl100k_base.tiktoken` and the HuggingFace gemma tokenizer) by
-running `just regen-vocab`, which downloads, converts via `cmd/convert`, and
-zstd-compresses them. Regeneration is a manual maintenance step, not part of the
-build, so there are no `//go:generate` directives (CI does not download vocab).
+These blobs are committed to the repo. They are regenerated from upstream sources (OpenAI's published `cl100k_base.tiktoken`, the HuggingFace gemma tokenizer and DeepSeek's `tokenizer.json`) by running `just regen-vocab`, which downloads, converts via `cmd/convert`, and zstd-compresses them. Regeneration is a manual maintenance step, not part of the build, so there are no `//go:generate` directives (CI does not download vocab).
 
 ### Text Normalization
 

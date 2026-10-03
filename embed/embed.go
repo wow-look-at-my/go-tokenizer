@@ -12,3 +12,6 @@ var Cl100kBaseZst []byte
 
 //go:embed gemma.bin.zst
 var GemmaZst []byte
+
+//go:embed deepseek.bin.zst
+var DeepSeekZst []byte

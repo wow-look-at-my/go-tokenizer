@@ -5,6 +5,9 @@ import "container/heap"
 // BPE implements the Byte Pair Encoding algorithm
 type BPE struct {
 	vocab *Vocabulary
+
+	// byteLevel starts merges from single bytes, as a HuggingFace ByteLevel model does.
+	byteLevel bool
 }
 
 // NewBPE creates a new BPE encoder with the given vocabulary
@@ -19,8 +22,10 @@ func (b *BPE) Encode(input []byte) []int {
 	}
 
 	// Check if entire input is a single token
-	if rank, ok := b.vocab.Encode(input); ok {
-		return []int{rank}
+	if !b.byteLevel {
+		if rank, ok := b.vocab.Encode(input); ok {
+			return []int{rank}
+		}
 	}
 
 	if b.vocab.HasMerges() {
@@ -40,7 +45,7 @@ const unmergeable = int(^uint(0) >> 1)
 // IDs without the merge loop having to build either.
 //
 // Boundaries are offsets rather than byte slices, so no candidate pair is ever
-// copied to be looked up, and only the two ranks a merge invalidates are
+// copied to be looked up, and only both ranks a merge invalidates are
 // recomputed.
 func (b *BPE) mergeByRanks(input []byte) []int {
 	bounds := make([]int, len(input)+1)
@@ -51,8 +56,6 @@ func (b *BPE) mergeByRanks(input []byte) []int {
 		return bounds
 	}
 
-	// rankAt reports the rank of the piece formed by joining the pieces that
-	// start at i and i+1.
 	rankAt := func(i int) int {
 		if i+2 >= len(bounds) {
 			return unmergeable
@@ -107,6 +110,7 @@ func (b *BPE) encodeWithRanks(input []byte) []int {
 // bpeNode is an element in the linked list of tokens during BPE merging.
 type bpeNode struct {
 	id      int
+	pos     int // index of the first symbol, which breaks ties between equal merges
 	prev    *bpeNode
 	next    *bpeNode
 	removed bool
@@ -124,10 +128,15 @@ type mergePair struct {
 // mergeHeap implements heap.Interface for mergePair, ordered by priority (lower = better).
 type mergeHeap []mergePair
 
-func (h mergeHeap) Len() int           { return len(h) }
-func (h mergeHeap) Less(i, j int) bool { return h[i].priority < h[j].priority }
-func (h mergeHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
-func (h *mergeHeap) Push(x any)        { *h = append(*h, x.(mergePair)) }
+func (h mergeHeap) Len() int { return len(h) }
+func (h mergeHeap) Less(i, j int) bool {
+	if h[i].priority != h[j].priority {
+		return h[i].priority < h[j].priority
+	}
+	return h[i].left.pos < h[j].left.pos
+}
+func (h mergeHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
+func (h *mergeHeap) Push(x any)   { *h = append(*h, x.(mergePair)) }
 func (h *mergeHeap) Pop() any {
 	old := *h
 	n := len(old)
@@ -140,12 +149,11 @@ func (h *mergeHeap) Pop() any {
 // Uses a linked list + min-heap for O(n log n) instead of O(n²).
 func (b *BPE) encodeWithMerges(input []byte) []int {
 	// Build initial linked list of character tokens
-	text := string(input)
 	var head, tail *bpeNode
 	nodeCount := 0
 
 	appendNode := func(id int) {
-		node := &bpeNode{id: id}
+		node := &bpeNode{id: id, pos: nodeCount}
 		if tail != nil {
 			tail.next = node
 			node.prev = tail
@@ -156,14 +164,22 @@ func (b *BPE) encodeWithMerges(input []byte) []int {
 		nodeCount++
 	}
 
-	for _, r := range text {
-		charBytes := []byte(string(r))
-		if id, ok := b.vocab.Encode(charBytes); ok {
-			appendNode(id)
-		} else {
-			for _, by := range charBytes {
-				if id, ok := b.vocab.Encode([]byte{by}); ok {
-					appendNode(id)
+	if b.byteLevel {
+		for i := range input {
+			if id, ok := b.vocab.Encode(input[i : i+1]); ok {
+				appendNode(id)
+			}
+		}
+	} else {
+		for _, r := range string(input) {
+			charBytes := []byte(string(r))
+			if id, ok := b.vocab.Encode(charBytes); ok {
+				appendNode(id)
+			} else {
+				for _, by := range charBytes {
+					if id, ok := b.vocab.Encode([]byte{by}); ok {
+						appendNode(id)
+					}
 				}
 			}
 		}
@@ -260,8 +276,10 @@ func (b *BPE) CountTokens(input []byte) int {
 		return 0
 	}
 
-	if _, ok := b.vocab.Encode(input); ok {
-		return 1
+	if !b.byteLevel {
+		if _, ok := b.vocab.Encode(input); ok {
+			return 1
+		}
 	}
 
 	if b.vocab.HasMerges() {

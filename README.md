@@ -1,11 +1,12 @@
 # go-tokenizer
 
-A Go library for BPE (Byte Pair Encoding) tokenization, compatible with OpenAI's tiktoken and Google's Gemma, with offline estimators for Anthropic's Claude.
+A Go library for BPE (Byte Pair Encoding) tokenization, compatible with OpenAI's tiktoken, Google's Gemma and DeepSeek, with offline estimators for Anthropic's Claude.
 
 | encoding | tokenizer | error against reference | load | throughput |
 | --- | --- | --- | --- | --- |
 | `cl100k_base` | published vocabulary, exact BPE | exact | 101 ms | 5.8 MB/s |
 | `gemma` | published vocabulary, exact BPE | exact | 554 ms | 1.4 MB/s |
+| `deepseek` | published vocabulary, exact byte-level BPE | exact, checked against the API | see below | see below |
 | `claude_4_5` | estimator over `cl100k_base` | **4.2%** mean, 3.0% median, 11.0% p90 | shares `cl100k_base` | 6.0 MB/s |
 | `claude_5` | estimator over `cl100k_base` | **4.2%** mean, 3.4% median, 9.5% p90 | shares `cl100k_base` | 5.9 MB/s |
 
@@ -86,6 +87,14 @@ if err != nil {
 tokens, _ := tok.Encode("Hello World")
 ```
 
+### DeepSeek
+
+```go
+tok, err := tokenizer.NewWithEncoding("deepseek")
+```
+
+One encoding covers DeepSeek V3 through V4.1, which share a vocabulary. `Encode` adds no beginning-of-sentence token. [docs/deepseek.md](docs/deepseek.md) covers the verification against HuggingFace and the DeepSeek API.
+
 ### Custom Vocabulary
 
 ```go
@@ -156,6 +165,7 @@ $ go-tokenizer encode --encoding gemma "Hello World"
 $ go-tokenizer encodings
 ENCODING     STATUS
 cl100k_base  embedded (100261 tokens) (default)
+deepseek     embedded (129280 tokens)
 gemma        embedded (262144 tokens)
 o200k_base   not embedded
 p50k_base    not embedded
@@ -181,10 +191,11 @@ p50k_base    not embedded
 | `p50k_base` | text-davinci-003 | 50k |
 | `o200k_base` | GPT-4o | 200k |
 | `gemma` | Gemma | 256k |
+| `deepseek` | DeepSeek V3, V3.2, V4, V4.1 | 129k |
 | `claude_4_5` | Claude 4.5, 4.6 | estimator |
 | `claude_5` | Claude 5, Opus 4.7 and 4.8 | estimator |
 
-Only `cl100k_base` and `gemma` ship with embedded vocabularies. `p50k_base` and `o200k_base` define their patterns and special tokens but need a vocabulary file supplied via `--vocab` (CLI) or `NewFromFile` (library).
+Only `cl100k_base`, `gemma` and `deepseek` ship with embedded vocabularies. `p50k_base` and `o200k_base` define their patterns and special tokens but need a vocabulary file supplied via `--vocab` (CLI) or `NewFromFile` (library).
 
 ## Claude token counts
 

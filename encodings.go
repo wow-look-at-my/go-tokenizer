@@ -11,6 +11,11 @@ type EncodingConfig struct {
 	Normalize     func(string) string // text normalization before encoding
 	Denormalize   func(string) string // text denormalization after decoding
 
+	// Splits, when set, replaces Pattern with a HuggingFace Sequence of Isolated Split steps. See NewSplitPreTokenizer.
+	Splits []string
+	// ByteLevel starts BPE merges from single bytes, for a HuggingFace ByteLevel model.
+	ByteLevel bool
+
 	// AnthropicEstimator marks an encoding that estimates token counts for a
 	// Claude model family rather than reproducing a published vocabulary. It
 	// counts and does not encode; see anthropic.go.
@@ -68,6 +73,14 @@ func gemmaDenormalize(s string) string {
 	return strings.ReplaceAll(s, "▁", " ")
 }
 
+// deepseekSplits copies the pre_tokenizer in DeepSeek's tokenizer.json, which
+// every DeepSeek release since the third shares.
+var deepseekSplits = []string{
+	`\p{N}{1,3}`,
+	`[一-龥぀-ゟ゠-ヿ]+`,
+	"[!\"#$%&'()*+,\\-./:;<=>?@\\[\\\\\\]^_`{|}~][A-Za-z]+|[^\r\n\\p{L}\\p{P}\\p{S}]?[\\p{L}\\p{M}]+| ?[\\p{P}\\p{S}]+[\r\n]*|\\s*[\r\n]+|\\s+(?!\\S)|\\s+",
+}
+
 // Encodings maps encoding names to their configurations
 var Encodings = map[string]EncodingConfig{
 	"cl100k_base": {
@@ -93,6 +106,12 @@ var Encodings = map[string]EncodingConfig{
 		IsBinary:      true,
 		Normalize:     gemmaNormalize,
 		Denormalize:   gemmaDenormalize,
+	},
+	"deepseek": {
+		Name:      "deepseek",
+		Splits:    deepseekSplits,
+		IsBinary:  true,
+		ByteLevel: true,
 	},
 	string(FamilyClaude45): {
 		Name:               string(FamilyClaude45),

@@ -53,5 +53,23 @@ regen-gemma: download-gemma
 	go run ./cmd/convert embeddinggemma_files/tokenizer.json embed/gemma.bin
 	zstd -19 -q --rm -f embed/gemma.bin
 
+# Regenerate the embedded DeepSeek vocab. V3 through V4.1 share one vocabulary;
+# V4.1 carries the largest added-token set.
+regen-deepseek:
+	curl -sfLo deepseek_tokenizer.json https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/resolve/main/tokenizer.json
+	go run ./cmd/convert deepseek_tokenizer.json embed/deepseek.bin
+	zstd -19 -q --rm -f embed/deepseek.bin
+	rm deepseek_tokenizer.json
+
+# Regenerate hfclasses.txt, the Unicode classes HuggingFace tokenizers applies to \p{..} and \s.
+# Needs node; installs the tokenizers package into a temporary directory.
+regen-hf-classes:
+	#!/usr/bin/env bash
+	set -euo pipefail
+	t="$(mktemp -d)"
+	npm install --silent --prefix "$t" tokenizers@0.23.2
+	curl -sfLo "$t/tokenizer.json" https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/resolve/main/tokenizer.json
+	NODE_PATH="$t/node_modules" node scripts/hf-unicode-classes/classes.cjs "$t/tokenizer.json" hfclasses.txt
+
 # Regenerate all embedded vocabularies
-regen-vocab: regen-cl100k regen-gemma
+regen-vocab: regen-cl100k regen-gemma regen-deepseek

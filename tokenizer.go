@@ -61,7 +61,6 @@ func WithSpecialTokens(tokens map[string]int) Option {
 	}
 }
 
-// WithCacheSize sets the LRU cache size (default 10000)
 func WithCacheSize(size int) Option {
 	return func(o *tokenizerOptions) {
 		o.cacheSize = size
@@ -97,6 +96,8 @@ func NewWithEncoding(name string) (Tokenizer, error) {
 		vocabData, decErr = decoder.DecodeAll(embed.Cl100kBaseZst, nil)
 	case "gemma":
 		vocabData, decErr = decoder.DecodeAll(embed.GemmaZst, nil)
+	case "deepseek":
+		vocabData, decErr = decoder.DecodeAll(embed.DeepSeekZst, nil)
 	default:
 		return nil, fmt.Errorf("no embedded vocabulary for encoding: %s", name)
 	}
@@ -118,7 +119,24 @@ func NewWithEncoding(name string) (Tokenizer, error) {
 	// Add special tokens
 	vocab.AddSpecialTokens(config.SpecialTokens)
 
-	return newTokenizer(vocab, config.Pattern, config.SpecialTokens, config.Normalize, config.Denormalize, 10000)
+	if config.Splits == nil {
+		return newTokenizer(vocab, config.Pattern, config.SpecialTokens, config.Normalize, config.Denormalize, 10000)
+	}
+
+	specials := vocab.AddedTokens()
+	if len(specials) == 0 {
+		specials = config.SpecialTokens
+	}
+	preTokenizer, err := NewSplitPreTokenizer(config.Splits, specials)
+	if err != nil {
+		return nil, fmt.Errorf("creating pre-tokenizer: %w", err)
+	}
+	t, err := assembleTokenizer(vocab, preTokenizer, config.Normalize, config.Denormalize, 10000)
+	if err != nil {
+		return nil, err
+	}
+	t.bpe.byteLevel = config.ByteLevel
+	return t, nil
 }
 
 // NewFromFile creates a tokenizer from a vocabulary file
@@ -158,7 +176,10 @@ func newTokenizer(vocab *Vocabulary, pattern string, specialTokens map[string]in
 	if err != nil {
 		return nil, fmt.Errorf("creating pre-tokenizer: %w", err)
 	}
+	return assembleTokenizer(vocab, preTokenizer, normalize, denormalize, cacheSize)
+}
 
+func assembleTokenizer(vocab *Vocabulary, preTokenizer *PreTokenizer, normalize, denormalize func(string) string, cacheSize int) (*tokenizer, error) {
 	cache, err := lru.New[string, []int](cacheSize)
 	if err != nil {
 		return nil, fmt.Errorf("creating cache: %w", err)

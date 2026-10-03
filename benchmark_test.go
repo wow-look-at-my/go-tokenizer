@@ -277,6 +277,16 @@ func BenchmarkEncodeCompareEncodings(b *testing.B) {
 			_, _ = gemma.Encode(text)
 		}
 	})
+
+	deepseek, err := NewWithEncoding("deepseek")
+	require.Nil(b, err)
+	b.Run("deepseek", func(b *testing.B) {
+		b.SetBytes(int64(len(text)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, _ = deepseek.Encode(text)
+		}
+	})
 }
 
 // ---------------------------------------------------------------------------
@@ -326,6 +336,11 @@ func BenchmarkNewTokenizer(b *testing.B) {
 	b.Run("gemma", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			_, _ = NewWithEncoding("gemma")
+		}
+	})
+	b.Run("deepseek", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			_, _ = NewWithEncoding("deepseek")
 		}
 	})
 }
