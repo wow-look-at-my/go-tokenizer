@@ -49,6 +49,7 @@ func TestWriteBinary(t *testing.T) {
 	// Check magic
 	assert.Equal(t, "BPEV", string(buf.Bytes()[:4]))
 
+
 }
 
 func TestByteLevelDecode(t *testing.T) {
