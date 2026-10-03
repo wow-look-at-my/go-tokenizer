@@ -8,8 +8,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// Test‑data helpers
-// ---------------------------------------------------------------------------
+// Test‑data helpers.
 
 // englishProse returns roughly n bytes of English prose.
 func englishProse(n int) string {
@@ -367,14 +366,7 @@ func BenchmarkEncodeCacheWarm(b *testing.B) {
 func BenchmarkEncodeCacheCold(b *testing.B) {
 	text := englishProse(1_000)
 
-	// Loading a vocabulary costs tens of milliseconds. Rebuilding the whole
-	// tokenizer per iteration starves this benchmark: the timer is stopped for
-	// the rebuild, so the measured work stays fast and b.N keeps climbing,
-	// while every iteration still pays that load in wall time. The run then
-	// grows without bound and takes the CI job's timeout with it.
-	//
-	// Share the vocabulary and give each iteration a fresh cache instead, which
-	// is the only part of a tokenizer that "cold" refers to here.
+	// Loading a vocabulary costs tens of milliseconds.
 	warm, err := New()
 	require.Nil(b, err)
 	shared := warm.(*tokenizer)
@@ -436,8 +428,7 @@ func BenchmarkEncodeVsCountTokens(b *testing.B) {
 }
 
 // ---------------------------------------------------------------------------
-// VocabSize (should be trivially fast — sanity check)
-// ---------------------------------------------------------------------------
+// VocabSize.
 
 func BenchmarkVocabSize(b *testing.B) {
 	tok, err := New()

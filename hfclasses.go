@@ -8,7 +8,7 @@ import (
 	"unicode"
 )
 
-//go:embed hfclasses.txt
+//go:embed hfclasses.ranges
 var hfClassesText string
 
 // hfClass holds the code points HuggingFace tokenizers matches with one regex class.
@@ -24,13 +24,13 @@ func loadHFClasses() (l, m, n, p, s, space hfClass) {
 		fields := strings.Fields(line)
 		dst, ok := byName[fields[0]]
 		if !ok {
-			panic(fmt.Sprintf("hfclasses.txt: unknown class %q", fields[0]))
+			panic(fmt.Sprintf("hfclasses.ranges: unknown class %q", fields[0]))
 		}
 		dst.table = parseRanges(fields[0], fields[1:])
 		delete(byName, fields[0])
 	}
 	for name := range byName {
-		panic(fmt.Sprintf("hfclasses.txt: class %s is missing", name))
+		panic(fmt.Sprintf("hfclasses.ranges: class %s is missing", name))
 	}
 	return
 }
@@ -45,7 +45,7 @@ func parseRanges(class string, fields []string) *unicode.RangeTable {
 		lo, errLo := strconv.ParseUint(loText, 16, 32)
 		hi, errHi := strconv.ParseUint(hiText, 16, 32)
 		if errLo != nil || errHi != nil || hi < lo {
-			panic(fmt.Sprintf("hfclasses.txt: class %s: bad range %q", class, f))
+			panic(fmt.Sprintf("hfclasses.ranges: class %s: bad range %q", class, f))
 		}
 		if hi <= 0xFFFF {
 			t.R16 = append(t.R16, unicode.Range16{Lo: uint16(lo), Hi: uint16(hi), Stride: 1})

@@ -10,9 +10,9 @@ A Go library for BPE (Byte Pair Encoding) tokenization, compatible with OpenAI's
 | `claude_4_5` | estimator over `cl100k_base` | **4.2%** mean, 3.0% median, 11.0% p90 | shares `cl100k_base` | 6.0 MB/s |
 | `claude_5` | estimator over `cl100k_base` | **4.2%** mean, 3.4% median, 9.5% p90 | shares `cl100k_base` | 5.9 MB/s |
 
-Error is measured against Anthropic's `count_tokens` endpoint, over text meant to stand for real input. `cl100k_base`, `gemma` and `deepseek` reproduce vocabularies their owners publish, so they are exact by construction and have no error to report. Throughput counts a 0.84 MB mixed corpus in process, best of several runs on a shared machine. The `deepseek` row comes from `BenchmarkNewTokenizer` and `BenchmarkEncodeCompareEncodings` on another machine. In that run, `cl100k_base` loaded twice as fast and encoded half again as fast.
+Error is measured against Anthropic's `count_tokens` endpoint, over text meant to stand for real input. `cl100k_base`, `gemma` and `deepseek` reproduce vocabularies their owners publish. As a result, they are exact by construction and have no error to report. Throughput counts a 0.84 MB mixed corpus in process, best of several runs on a shared machine. The `deepseek` row comes from `BenchmarkNewTokenizer` and `BenchmarkEncodeCompareEncodings` on another machine. In that run, `cl100k_base` loaded twice as fast and encoded half again as fast.
 
-These numbers are worse in two places, and both are measured rather than hidden:
+These numbers are worse in multiple places, and both are measured rather than hidden:
 
 | case | `claude_4_5` | `claude_5` |
 | --- | --- | --- |
@@ -28,7 +28,7 @@ Against [`rohangpta/ctoc`](https://github.com/rohangpta/ctoc), which mined a voc
 | this library | **4.2%** | **4.2%** | 4.7 MB/s |
 | ctoc | 9.9% | 26.5% | **20.1 MB/s** |
 
-ctoc is the faster of the two, by roughly four times. It matches greedily against a trie, which is less work than BPE merges. It is also a C++ binary. Its accuracy on Claude 5 reflects a vocabulary mined before that tokenizer existed.
+ctoc is the faster of the two, by a few times. It matches greedily against a trie, which is less work than BPE merges. It is also a C++ binary. Its accuracy on Claude 5 reflects a vocabulary mined before that tokenizer existed.
 
 ## Installation
 
@@ -208,7 +208,7 @@ n, _ := est.CountTokens(text)
 total := n + est.MessageOverhead() // what count_tokens reports for a message
 ```
 
-Claude 4.5/4.6 and Claude 5 use different tokenizers, so pick the flavor that matches the model. Runs of a single repeated character are estimated poorly. See [docs/anthropic-estimator.md](docs/anthropic-estimator.md).
+Claude 4.5/4.6 and Claude multiple use different tokenizers, so pick the flavor that matches the model. Runs of a single repeated character are estimated poorly. See [docs/anthropic-estimator.md](docs/anthropic-estimator.md).
 
 ## Features
 

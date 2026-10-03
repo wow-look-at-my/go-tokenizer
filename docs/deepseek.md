@@ -29,7 +29,7 @@ Details of the HuggingFace model have no tiktoken equivalent. Each changes token
 
 The pre-tokenizer patterns use `\p{L}`, `\p{M}`, `\p{N}`, `\p{P}`, `\p{S}` and `\s`. HuggingFace tokenizers and the Go toolchain disagree on which code points those hold, because their Unicode tables are different versions. U+32BD4 is the measured case: Go calls it a letter, while HuggingFace and the DeepSeek API do not. Put it next to an unassigned code point, and the Go tables give one more token than the HuggingFace tables. The API agrees with HuggingFace.
 
-`hfclasses.txt` records the HuggingFace classes for every scalar value. `scripts/hf-unicode-classes` extracts them from the Rust library through its Node binding, and `just regen-hf-classes` reruns it. The DeepSeek pre-tokenizer is a hand scanner over those tables. As a result, it does not use regexp2 and its Go tables. `TestDeepseekScanMatchesRegexp` holds the scanner to the regex path on every fixture row where both tables agree.
+`hfclasses.ranges` records the HuggingFace classes for every scalar value. `scripts/hf-unicode-classes` extracts them from the Rust library through its Node binding, and `just regen-hf-classes` reruns it. The DeepSeek pre-tokenizer is a hand scanner over those tables. As a result, it does not use regexp2 and its Go tables. `TestDeepseekScanMatchesRegexp` holds the scanner to the regex path on every fixture row where both tables agree.
 
 ## How it was verified
 

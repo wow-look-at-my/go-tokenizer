@@ -17,7 +17,7 @@ type Tokenizer interface {
 	// Encode returns token IDs for the input text
 	Encode(text string) ([]int, error)
 
-	// CountTokens returns just the token count (optimized path)
+	// CountTokens returns the token count (optimized path)
 	CountTokens(text string) (int, error)
 
 	// Decode converts token IDs back to text

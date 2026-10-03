@@ -34,8 +34,7 @@ func (b *BPE) Encode(input []byte) []int {
 	return b.encodeWithRanks(input)
 }
 
-// unmergeable is the rank of a pair the vocabulary does not hold. Real ranks
-// are vocabulary indices, so any of them compares lower and wins the search.
+// unmergeable is the rank of a pair the vocabulary does not hold.
 const unmergeable = int(^uint(0) >> 1)
 
 // mergeByRanks applies the tiktoken merge rule to one pre-token: repeatedly

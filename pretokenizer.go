@@ -24,10 +24,7 @@ type PreTokenizer struct {
 	// splitFast replaces splits for a pattern sequence this package recognizes.
 	splitFast func(text string, emit func(string))
 
-	// scan splits text without the regex engine when the pattern is one this
-	// package recognizes. regexp2 backtracks, and pre-tokenization was measured
-	// as the majority of the time spent counting; a direct scanner removes it.
-	// TestFastScanMatchesRegexp holds both to identical output.
+	// scan splits text without the regex engine when the pattern is one this package recognizes. regexp2 backtracks.
 	scan func(text string, at int) int
 }
 
@@ -232,14 +229,12 @@ func splitIsolated(re *regexp2.Regexp, s string, out []string) ([]string, error)
 
 // tokenizeScan splits text with the direct scanner.
 func (p *PreTokenizer) tokenizeScan(text string) []PreToken {
-	// Most pre-tokens are a short word, so the count lands near a quarter of
-	// the byte length; sizing for that avoids most of the regrowth.
+	// Most pre-tokens are a short word, so the count lands near a quarter of the byte length.
 	result := make([]PreToken, 0, len(text)/4+1)
 	for at := 0; at < len(text); {
 		end := p.scan(text, at)
 		if end <= at {
-			// A rune the pattern cannot start a match on would otherwise spin
-			// here. Emitting it alone keeps the split lossless.
+			// A rune the pattern cannot start a match on would otherwise spin here. Emitting it alone keeps the split lossless.
 			_, size := utf8.DecodeRuneInString(text[at:])
 			end = at + size
 		}
@@ -300,8 +295,7 @@ func scanCl100k(text string, at int) int {
 		return at
 	}
 
-	// The remaining alternatives all consume whitespace. '\s*[\r\n]+' wins when
-	// the run holds a line break, and ends after the last one.
+	// The remaining alternatives all consume whitespace.
 	runEnd, lastBreakEnd := at, -1
 	for runEnd < len(text) {
 		w, wSize := utf8.DecodeRuneInString(text[runEnd:])
@@ -318,8 +312,7 @@ func scanCl100k(text string, at int) int {
 	}
 
 	// '\s+(?!\S)' keeps the run only while nothing but whitespace follows, so a
-	// run that runs into a word gives its last character to that word. A single
-	// character cannot be given away, and '\s+' takes it instead.
+	// run that runs into a word gives its last character to that word.
 	if runEnd == len(text) {
 		return runEnd
 	}

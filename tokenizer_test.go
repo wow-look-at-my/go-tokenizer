@@ -22,7 +22,6 @@ func TestEncodeHello(t *testing.T) {
 	tokens, err := tok.Encode("hello")
 	require.Nil(t, err)
 
-	// cl100k_base: "hello" -> [15339]
 	expected := []int{15339}
 	assert.True(t, intSliceEqual(tokens, expected))
 
@@ -35,7 +34,6 @@ func TestEncodeHelloWorld(t *testing.T) {
 	tokens, err := tok.Encode("Hello World")
 	require.Nil(t, err)
 
-	// cl100k_base: "Hello World" -> [9906, 4435]
 	expected := []int{9906, 4435}
 	assert.True(t, intSliceEqual(tokens, expected))
 
@@ -130,7 +128,6 @@ func TestSpecialTokens(t *testing.T) {
 	tokens, err := tok.Encode("<|endoftext|>")
 	require.Nil(t, err)
 
-	// <|endoftext|> should be token 100257
 	expected := []int{100257}
 	assert.True(t, intSliceEqual(tokens, expected))
 
@@ -144,7 +141,7 @@ func TestMixedSpecialTokens(t *testing.T) {
 	tokens, err := tok.Encode(text)
 	require.Nil(t, err)
 
-	// Should have 3 tokens: Hello, <|endoftext|>, World
+	// Should have tokens: Hello, <|endoftext|>, World
 	assert.Equal(t, 3, len(tokens))
 
 	// Middle token should be the special token
@@ -177,7 +174,6 @@ func TestVocabSize(t *testing.T) {
 	tok, err := New()
 	require.Nil(t, err)
 
-	// cl100k_base has 100256 base tokens + 5 special tokens = 100261
 	size := tok.VocabSize()
 	assert.GreaterOrEqual(t, size, 100256)
 
@@ -197,7 +193,6 @@ V29ybGQ= 1
 	rank, ok := vocab.Encode([]byte("Hello"))
 	assert.False(t, !ok || rank != 0)
 
-	// 1 -> "World"
 	bytes, ok := vocab.Decode(1)
 	assert.False(t, !ok || string(bytes) != "World")
 

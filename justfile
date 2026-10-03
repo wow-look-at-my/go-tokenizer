@@ -61,7 +61,7 @@ regen-deepseek:
 	zstd -19 -q --rm -f embed/deepseek.bin
 	rm deepseek_tokenizer.json
 
-# Regenerate hfclasses.txt, the Unicode classes HuggingFace tokenizers applies to \p{..} and \s.
+# Regenerate hfclasses.ranges, the Unicode classes HuggingFace tokenizers applies to \p{..} and \s.
 # Needs node; installs the tokenizers package into a temporary directory.
 regen-hf-classes:
 	#!/usr/bin/env bash
@@ -69,7 +69,7 @@ regen-hf-classes:
 	t="$(mktemp -d)"
 	npm install --silent --prefix "$t" tokenizers@0.23.2
 	curl -sfLo "$t/tokenizer.json" https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/resolve/main/tokenizer.json
-	NODE_PATH="$t/node_modules" node scripts/hf-unicode-classes/classes.cjs "$t/tokenizer.json" hfclasses.txt
+	NODE_PATH="$t/node_modules" node scripts/hf-unicode-classes/classes.cjs "$t/tokenizer.json" hfclasses.ranges
 
 # Regenerate all embedded vocabularies
 regen-vocab: regen-cl100k regen-gemma regen-deepseek

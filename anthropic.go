@@ -7,32 +7,17 @@ import (
 	"unicode"
 )
 
-// Anthropic has never published the vocabulary its current models use, and the
-// count_tokens endpoint is the only authority on it. This file holds an offline
-// estimator for those counts: a BPE tokenizer this repository does embed runs
-// over the text, and a per-character-class correction, fitted against measured
-// counts, maps its output onto what Anthropic reports. Nothing here reaches the
-// network.
-//
-// Measurement found two live tokenizers, not one. They agree exactly on digits,
-// punctuation, and every non-Latin script, and disagree on runs of ASCII
-// letters, where the newer one is markedly more granular. AnthropicFamily names
-// that split; EncodingForModel maps a model id onto it.
+// Anthropic has never published the vocabulary its current models use.
 
 // AnthropicFamily identifies a tokenizer shared by a group of Claude models.
 type AnthropicFamily string
 
 const (
-	// FamilyClaude45 covers the Claude 4.5 and 4.6 generation.
 	FamilyClaude45 AnthropicFamily = "claude_4_5"
-	// FamilyClaude5 covers the Claude 5 generation, including Opus 4.8.
-	FamilyClaude5 AnthropicFamily = "claude_5"
+	FamilyClaude5  AnthropicFamily = "claude_5"
 )
 
-// anthropicClass buckets a pre-token by script and case. The correction is
-// fitted per class because the error of the embedded BPE against Anthropic's
-// tokenizer is script-dependent: it tracks Latin text far better than it tracks
-// Han or Cyrillic, and the two families differ only on ASCII letters.
+// anthropicClass buckets a pre-token by script and case.
 type anthropicClass int
 
 const (
@@ -53,16 +38,7 @@ const (
 	numAnthropicClasses
 )
 
-// repeatRunThreshold is the length past which a pre-token of one repeated
-// character is charged from its length alone.
-//
-// The base encoding's cost for such a run says almost nothing about
-// Anthropic's, because each vocabulary holds its own long single-character
-// tokens: measured at four hundred characters, a run of "a" costs 2.7x what the
-// base encoding spends while a run of "x" costs 1.04x. Reading the base cost
-// there is worse than ignoring it, so these runs are priced by length in their
-// own class. Which specific runs are cheap stays unknowable from outside, and
-// docs/anthropic-estimator.md records the error that leaves.
+// repeatRunThreshold is the length past which a pre-token of one repeated character is charged from its length alone.
 const repeatRunThreshold = 4
 
 // anthropicFeatures is what the correction is a linear function of: for every
@@ -76,11 +52,8 @@ type anthropicFeatures struct {
 	HugeRunes  [numAnthropicClasses]float64
 }
 
-// A pre-token's length is split at these breakpoints so each span gets its own
-// rate. A long run of one character is where the embedded BPE and Anthropic's
-// tokenizer diverge hardest: the embedded one holds tokens covering such a run
-// and spends few, Anthropic's spends many. One rate per rune cannot fit a short
-// word, an indent, and a four-hundred-character run at once.
+// A pre-token's length is split at these breakpoints so each span gets its
+// own rate.
 const (
 	longRuneThreshold = 8
 	hugeRuneThreshold = 64
@@ -107,10 +80,7 @@ func (w *anthropicWeights) predict(f *anthropicFeatures) float64 {
 }
 
 // classifyPreToken buckets a pre-token by its letters, falling back to its
-// symbols when it holds none. A pre-token produced by the cl100k pattern is
-// homogeneous enough that its first letter decides the script.
-// isRepeatRun reports whether s is one non-whitespace character repeated at
-// least repeatRunThreshold times.
+// symbols when it holds none.
 func isRepeatRun(s string) bool {
 	var first rune = -1
 	n := 0
@@ -165,7 +135,7 @@ func classifyPreToken(s string) anthropicClass {
 		case digits > 0:
 			return classNumber
 		// A run holding a line break is charged differently from a run of
-		// spaces or tabs, so the two do not share a rate.
+		// spaces or tabs, so both do not share a rate.
 		case newline > 0:
 			return classNewlineRun
 		case space > 0:
@@ -199,20 +169,15 @@ func classifyPreToken(s string) anthropicClass {
 	}
 }
 
-// AnthropicEstimator reports how many tokens Anthropic's tokenizer would spend
-// on a text. It answers offline, from an embedded vocabulary and a fitted
-// correction, and never contacts the API.
-//
-// It estimates a count and does not reproduce a segmentation: Anthropic
-// publishes no vocabulary for these models, so there are no token IDs to
-// return. Encode and Decode say so rather than inventing IDs.
+// AnthropicEstimator reports how many tokens Anthropic's tokenizer would
+// spend on a text.
 type AnthropicEstimator struct {
 	weights anthropicWeights
 	family  AnthropicFamily
 }
 
 // The base tokenizer is shared: every family corrects the output of the same
-// embedded encoding, and loading that vocabulary is the expensive part.
+// embedded encoding.
 var (
 	anthropicBaseOnce sync.Once
 	anthropicBase     *tokenizer
@@ -271,18 +236,14 @@ func extractAnthropicFeatures(text string) (*anthropicFeatures, error) {
 	return f, nil
 }
 
-// The shape of the vector AnthropicFeatureVector returns, published so a
-// calibration tool can build a design matrix without depending on internals.
-// The vector holds each aggregate over every class in turn, then a constant.
+// The shape of the vector AnthropicFeatureVector returns.
 const (
 	AnthropicFeatureClasses    = int(numAnthropicClasses)
 	AnthropicFeatureAggregates = 5
 )
 
-// AnthropicASCIILetterClasses lists the class indices where the two families
-// were measured to disagree. A joint fit shares every other weight between
-// them, which is what lets the family with fewer measurements borrow the
-// other's evidence for scripts they charge identically for.
+// AnthropicASCIILetterClasses lists the class indices where both families
+// were measured to disagree.
 func AnthropicASCIILetterClasses() []int {
 	return []int{int(classWordLower), int(classWordCapital), int(classWordUpper)}
 }
@@ -316,8 +277,7 @@ func (e *AnthropicEstimator) CountTokens(text string) (int, error) {
 	}
 	n := int(math.Round(e.weights.predict(f)))
 	if n < 1 {
-		// Any non-empty text costs at least a token; a correction that
-		// undershoots into zero or below would be reported as free.
+		// Any non-empty text costs at least a token.
 		n = 1
 	}
 	return n, nil
@@ -334,8 +294,8 @@ func (e *AnthropicEstimator) Decode([]int) (string, error) {
 	return "", fmt.Errorf("encoding %s: Anthropic publishes no vocabulary for these models, so token IDs cannot be decoded", e.family)
 }
 
-// VocabSize reports the size of the vocabulary actually consulted, which is the
-// base encoding's rather than Anthropic's unpublished one.
+// VocabSize reports the size of the vocabulary consulted, which is the base
+// encoding's rather than Anthropic's unpublished one.
 func (e *AnthropicEstimator) VocabSize() int {
 	base, err := loadAnthropicBase()
 	if err != nil {
@@ -344,14 +304,11 @@ func (e *AnthropicEstimator) VocabSize() int {
 	return base.VocabSize()
 }
 
-// MessageOverhead is the token cost the Messages API adds around a single
-// user text message, measured per family. Add it to a CountTokens result to
-// predict what count_tokens reports for that message.
+// MessageOverhead is the token cost the Messages API adds around a single user text message, measured per family.
 func (e *AnthropicEstimator) MessageOverhead() int { return anthropicOverheadByFamily[e.family] }
 
-// EncodingForModel maps a Claude model id onto the encoding name that estimates
-// its token counts. It reports false for an id whose family has not been
-// measured, so a caller cannot silently budget with the wrong tokenizer.
+// EncodingForModel maps a Claude model id onto the encoding name that
+// estimates its token counts.
 func EncodingForModel(model string) (string, bool) {
 	family, ok := anthropicFamilyByModel[model]
 	if !ok {

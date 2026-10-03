@@ -10,8 +10,7 @@ import (
 	"strings"
 )
 
-// mergePairKey packs token IDs into a single uint64 for use as a map key. This
-// avoids the fmt.Sprintf allocation that was the dominant cost in BPE encoding.
+// mergePairKey packs token IDs into a single uint64 for use as a map key.
 func mergePairKey(id1, id2 int) uint64 {
 	return uint64(uint32(id1))<<32 | uint64(uint32(id2))
 }

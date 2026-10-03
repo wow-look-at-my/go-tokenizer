@@ -16,14 +16,11 @@ type EncodingConfig struct {
 	// ByteLevel starts BPE merges from single bytes, for a HuggingFace ByteLevel model.
 	ByteLevel bool
 
-	// AnthropicEstimator marks an encoding that estimates token counts for a
-	// Claude model family rather than reproducing a published vocabulary. It
-	// counts and does not encode; see anthropic.go.
+	// AnthropicEstimator marks an encoding that estimates token counts for a Claude model family.
 	AnthropicEstimator bool
 }
 
-// cl100k_base pattern from OpenAI tiktoken
-// This pattern handles contractions, words, numbers, punctuation, and whitespace
+// cl100k_base pattern from OpenAI tiktoken This pattern handles contractions, words, numbers, punctuation, and whitespace
 const cl100kPattern = `(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+`
 
 // cl100k_base special tokens
