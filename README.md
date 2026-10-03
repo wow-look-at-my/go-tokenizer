@@ -6,11 +6,11 @@ A Go library for BPE (Byte Pair Encoding) tokenization, compatible with OpenAI's
 | --- | --- | --- | --- | --- |
 | `cl100k_base` | published vocabulary, exact BPE | exact | 101 ms | 5.8 MB/s |
 | `gemma` | published vocabulary, exact BPE | exact | 554 ms | 1.4 MB/s |
-| `deepseek` | published vocabulary, exact byte-level BPE | exact, checked against the API | see below | see below |
+| `deepseek` | published vocabulary, exact byte-level BPE | exact, checked against the API | 61 ms | 15 MB/s |
 | `claude_4_5` | estimator over `cl100k_base` | **4.2%** mean, 3.0% median, 11.0% p90 | shares `cl100k_base` | 6.0 MB/s |
 | `claude_5` | estimator over `cl100k_base` | **4.2%** mean, 3.4% median, 9.5% p90 | shares `cl100k_base` | 5.9 MB/s |
 
-Error is measured against Anthropic's `count_tokens` endpoint, over text meant to stand for real input. `cl100k_base` and `gemma` reproduce vocabularies their owners publish, so they are exact by construction and have no error to report. Throughput counts a 0.84 MB mixed corpus in process, best of several runs on a shared machine.
+Error is measured against Anthropic's `count_tokens` endpoint, over text meant to stand for real input. `cl100k_base`, `gemma` and `deepseek` reproduce vocabularies their owners publish, so they are exact by construction and have no error to report. Throughput counts a 0.84 MB mixed corpus in process, best of several runs on a shared machine. The `deepseek` row comes from `BenchmarkNewTokenizer` and `BenchmarkEncodeCompareEncodings` on another machine. In that run, `cl100k_base` loaded twice as fast and encoded half again as fast.
 
 These numbers are worse in two places, and both are measured rather than hidden:
 
