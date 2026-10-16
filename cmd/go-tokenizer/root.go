@@ -12,9 +12,7 @@ import (
 	tokenizer "github.com/wow-look-at-my/go-tokenizer"
 )
 
-// options carries the flag values of a single command invocation. The command
-// tree binds flags here rather than into package variables, so concurrent
-// invocations inside a process never share flag state.
+// options carries the flag values of a single command invocation.
 type options struct {
 	encoding string // named encoding to use (cl100k_base, gemma, claude, ...)
 	vocab    string // path to a custom .tiktoken vocabulary file

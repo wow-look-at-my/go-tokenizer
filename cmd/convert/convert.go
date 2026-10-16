@@ -9,13 +9,14 @@ import (
 	"sync"
 )
 
-// binaryFormatVersion is the BPEV revision this writer emits, which LoadBinary
-// dispatches on: token IDs and merge pairs are delta-encoded varints.
-const binaryFormatVersion = 2
+// binaryFormatVersion is the BPEV revision this writer emits, which LoadBinary dispatches on.
+const binaryFormatVersion = 3
 
 type Vocab struct {
 	Tokens map[string]uint32
 	Merges [][2]uint32
+	// Added holds tokens matched on their literal text before pre-tokenization.
+	Added map[string]uint32
 }
 
 func writeVarint(buf *bytes.Buffer, val uint32) {
@@ -96,6 +97,21 @@ func WriteBinary(v *Vocab, out io.Writer) error {
 	}
 	out.Write(mergeBuf.Bytes())
 
-	fmt.Printf("Done! Wrote %d vocab entries, %d merges\n", len(v.Tokens), len(v.Merges))
+	// Added tokens: count, then per token its ID, byte length and bytes, in ID order.
+	added := make([]string, 0, len(v.Added))
+	for token := range v.Added {
+		added = append(added, token)
+	}
+	sort.Slice(added, func(a, b int) bool { return v.Added[added[a]] < v.Added[added[b]] })
+	addedBuf := &bytes.Buffer{}
+	writeVarint(addedBuf, uint32(len(added)))
+	for _, token := range added {
+		writeVarint(addedBuf, v.Added[token])
+		writeVarint(addedBuf, uint32(len(token)))
+		addedBuf.WriteString(token)
+	}
+	out.Write(addedBuf.Bytes())
+
+	fmt.Printf("Done! Wrote %d vocab entries, %d merges, %d added tokens\n", len(v.Tokens), len(v.Merges), len(added))
 	return nil
 }

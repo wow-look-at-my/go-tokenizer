@@ -167,9 +167,9 @@ func TestLoadBinaryErrors(t *testing.T) {
 
 	// Test with unsupported version
 	data := []byte("BPEV")
-	data = append(data, 99, 0, 0, 0) // version 99
-	data = append(data, 0, 0, 0, 0)  // vocab size
-	data = append(data, 0, 0, 0, 0)  // num groups
+	data = append(data, 99, 0, 0, 0)
+	data = append(data, 0, 0, 0, 0) // vocab size
+	data = append(data, 0, 0, 0, 0) // num groups
 	_, err = LoadBinary(data)
 	assert.NotNil(t, err)
 
@@ -180,19 +180,14 @@ func TestLoadBinaryErrors(t *testing.T) {
 }
 
 func TestLoadBinaryV1(t *testing.T) {
-	// Build a minimal v1 format binary
-	// Header: BPEV + version 1 + vocab size 1 + num groups 1
 	data := []byte("BPEV")
-	data = append(data, 1, 0, 0, 0) // version 1
-	data = append(data, 1, 0, 0, 0) // vocab size 1
-	data = append(data, 1, 0, 0, 0) // num groups 1
-	// Group: length 1, count 1
-	data = append(data, 1, 0)       // token length 1
-	data = append(data, 1, 0, 0, 0) // count 1
-	// Token: "a" with id 0
-	data = append(data, 'a')        // token
-	data = append(data, 0, 0, 0, 0) // id 0
-	// Merges: 0
+	data = append(data, 1, 0, 0, 0)
+	data = append(data, 1, 0, 0, 0)
+	data = append(data, 1, 0, 0, 0)
+	data = append(data, 1, 0)
+	data = append(data, 1, 0, 0, 0)
+	data = append(data, 'a') // token
+	data = append(data, 0, 0, 0, 0)
 	data = append(data, 0, 0, 0, 0)
 
 	v, err := LoadBinary(data)
@@ -306,7 +301,6 @@ func TestCountTokensSpecialTokens(t *testing.T) {
 }
 
 func TestNewTokenizerCacheError(t *testing.T) {
-	// Test with cache size of 0 should still work
 	v := NewVocabulary()
 	v.encoder["test"] = 0
 	v.decoder[0] = []byte("test")

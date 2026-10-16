@@ -2,10 +2,16 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
-	"github.com/stretchr/testify/assert"
+	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	tokenizer "github.com/wow-look-at-my/go-tokenizer"
 )
 
 func TestWriteVarint(t *testing.T) {
@@ -76,18 +82,14 @@ func TestLoadTiktokenNotFound(t *testing.T) {
 }
 
 func TestLoadHuggingFace(t *testing.T) {
-	tmp := filepath.Join(t.TempDir(), "tokenizer.json")
-	content := `{
+	content := []byte(`{
 		"model": {
 			"vocab": {"a": 0, "b": 1, "ab": 2},
 			"merges": [["a", "b"]]
 		}
-	}`
-	if err := os.WriteFile(tmp, []byte(content), 0644); err != nil {
-		t.Fatal(err)
-	}
+	}`)
 
-	v, err := loadHuggingFace(tmp)
+	v, err := loadHuggingFace(content)
 	if err != nil {
 		t.Fatalf("loadHuggingFace: %v", err)
 	}
@@ -102,20 +104,79 @@ func TestLoadHuggingFace(t *testing.T) {
 	}
 }
 
-func TestLoadHuggingFaceNotFound(t *testing.T) {
-	_, err := loadHuggingFace("/nonexistent/tokenizer.json")
+func TestLoadJSONNotFound(t *testing.T) {
+	_, err := loadJSON("/nonexistent/tokenizer.json")
 	if err == nil {
 		t.Error("expected error for nonexistent file")
 	}
 }
 
 func TestLoadHuggingFaceInvalid(t *testing.T) {
-	tmp := filepath.Join(t.TempDir(), "bad.json")
-	if err := os.WriteFile(tmp, []byte("not json"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	_, err := loadHuggingFace(tmp)
+	_, err := loadHuggingFace([]byte("not json"))
 	if err == nil {
 		t.Error("expected error for invalid JSON")
 	}
+}
+
+func TestByteLevelDecode(t *testing.T) {
+	// Ġ spells the space byte and Ċ the newline; printable ASCII stands for itself.
+	got, err := byteLevelDecode("ĠhelloĊ")
+	require.NoError(t, err)
+	assert.Equal(t, []byte(" hello\n"), got)
+
+	// Every byte has exactly one spelling.
+	assert.Len(t, byteLevelRunes, 256)
+
+	_, err = byteLevelDecode("<｜User｜>")
+	assert.ErrorContains(t, err, "not a byte-level rune")
+}
+
+func TestHFMergeBothSpellings(t *testing.T) {
+	var merges []hfMerge
+	require.NoError(t, json.Unmarshal([]byte(`[["Ġ","t"],"i n"]`), &merges))
+	assert.Equal(t, []hfMerge{{"Ġ", "t"}, {"i", "n"}}, merges)
+
+	assert.Error(t, json.Unmarshal([]byte(`["nospace"]`), &merges))
+	assert.Error(t, json.Unmarshal([]byte(`[["a","b","c"]]`), &merges))
+	assert.Error(t, json.Unmarshal([]byte(`[7]`), &merges))
+}
+
+// byteLevelJSON is a byte-level tokenizer.json in miniature: specials inside
+// model.vocab, as DeepSeek ships them, and merges in the string spelling.
+const byteLevelJSON = `{
+	"added_tokens": [{"id": 0, "content": "<s>"}, {"id": 5, "content": "<think>"}],
+	"pre_tokenizer": {"type": "Sequence", "pretokenizers": [{"type": "ByteLevel"}]},
+	"model": {
+		"vocab": {"<s>": 0, "a": 1, "b": 2, "Ġ": 3, "ab": 4},
+		"merges": ["a b"]
+	}
+}`
+
+func TestLoadHuggingFaceByteLevelRoundTrip(t *testing.T) {
+	vocab, err := loadHuggingFace([]byte(byteLevelJSON))
+	require.NoError(t, err)
+	assert.Equal(t, map[string]uint32{"a": 1, "b": 2, " ": 3, "ab": 4}, vocab.Tokens)
+	assert.Equal(t, map[string]uint32{"<s>": 0, "<think>": 5}, vocab.Added)
+	assert.Equal(t, [][2]uint32{{1, 2}}, vocab.Merges)
+
+	buf := &bytes.Buffer{}
+	require.NoError(t, WriteBinary(vocab, buf))
+	loaded, err := tokenizer.LoadBinary(buf.Bytes())
+	require.NoError(t, err)
+	assert.Equal(t, map[string]int{"<s>": 0, "<think>": 5}, loaded.AddedTokens())
+	id, ok := loaded.Encode([]byte(" "))
+	assert.True(t, ok)
+	assert.Equal(t, 3, id)
+	id, ok = loaded.Encode([]byte("<think>"))
+	assert.True(t, ok)
+	assert.Equal(t, 5, id)
+	priority, ok := loaded.MergePriority(1, 2)
+	assert.True(t, ok)
+	assert.Equal(t, 0, priority)
+}
+
+func TestLoadHuggingFaceByteLevelRejectsUnknownMerge(t *testing.T) {
+	bad := strings.Replace(byteLevelJSON, `"a b"`, `"a z"`, 1)
+	_, err := loadHuggingFace([]byte(bad))
+	assert.ErrorContains(t, err, "outside the vocabulary")
 }
