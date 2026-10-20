@@ -15,4 +15,3 @@ usage: anthropic-calibrate <command> [flags]
 
 A labelled row is a JSON object per line:
       {"id":..., "category":..., "text":..., "apiCounts":{"claude_5":123}}
-
