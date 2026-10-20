@@ -364,11 +364,6 @@ func BenchmarkEncodeCacheWarm(b *testing.B) {
 }
 
 func BenchmarkEncodeCacheCold(b *testing.B) {
-	tok, err := New()
-	if err != nil {
-		b.Fatalf("New() error: %v", err)
-	}
-
 	// Loading a vocabulary costs tens of milliseconds.
 	warm, err := New()
 	require.Nil(b, err)
