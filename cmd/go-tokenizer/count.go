@@ -81,7 +81,7 @@ never silently dropped or guessed.`,
 // input line and writes that text's decimal token count per output line, in
 // input order. Each count is written as it is computed, so a peer driving the
 // process over pipes gets request/response behavior. A malformed line or a
-// failed count aborts the run with an error naming the line: a caller that
+// failed count aborts the run with an error naming the line. A caller that
 // sent N sections gets N counts or a loud failure, never a silent gap.
 func batchCount(tok tokenizer.Tokenizer, in io.Reader, out io.Writer) error {
 	// ReadString, not Scanner: a JSON-encoded diff section outgrows Scanner.

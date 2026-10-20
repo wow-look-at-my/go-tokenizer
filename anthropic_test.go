@@ -52,8 +52,8 @@ func loadCountCases(t *testing.T) []countCase {
 }
 
 // errorPercentiles reports the mean and the given percentile of a sorted error
-// sample, so a bound can be stated on the shape of the distribution rather than
-// on a single worst case.
+// sample. A bound can be stated on the shape of the distribution rather than on
+// a single worst case.
 func errorPercentiles(errs []float64, p float64) (mean, pct float64) {
 	sort.Float64s(errs)
 	sum := 0.0
@@ -65,7 +65,7 @@ func errorPercentiles(errs []float64, p float64) (mean, pct float64) {
 
 // TestAnthropicEstimatorAccuracy holds the estimator to the accuracy it was
 // measured at. The bounds sit a little above the fit so ordinary noise does not
-// fail the build, and far enough below the uncorrected base encoding that a
+// fail the build. Far enough below the uncorrected base encoding that a
 // regression to it cannot pass.
 func TestAnthropicEstimatorAccuracy(t *testing.T) {
 	cases := loadCountCases(t)
@@ -164,7 +164,7 @@ func TestAnthropicFamiliesDisagreeOnASCII(t *testing.T) {
 
 // TestAnthropicEstimatorRefusesToEncode guards the honesty of the API surface:
 // Anthropic publishes no vocabulary for these models, so there are no token IDs
-// to hand back, and inventing them would let a caller decode nonsense.
+// to hand back. Inventing them would let a caller decode nonsense.
 func TestAnthropicEstimatorRefusesToEncode(t *testing.T) {
 	est, err := NewAnthropicEstimator(FamilyClaude5)
 	require.NoError(t, err)

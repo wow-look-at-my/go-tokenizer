@@ -47,9 +47,9 @@ func NewPreTokenizer(pattern string, specialTokens map[string]int) (*PreTokenize
 }
 
 // NewSplitPreTokenizer creates a pre-tokenizer that runs patterns as a
-// HuggingFace Sequence of Split steps with the Isolated behavior: matches and
-// the text between them both become pieces, and each pattern sees only the
-// pieces the pattern before it produced.
+// HuggingFace Sequence of Split steps with the Isolated behavior.
+// NewSplitPreTokenizer matches and the text between them both become pieces,
+// and each pattern sees only the pieces the pattern before it produced.
 func NewSplitPreTokenizer(patterns []string, specialTokens map[string]int) (*PreTokenizer, error) {
 	p := &PreTokenizer{specialTokens: specialTokens}
 	for _, pattern := range patterns {
@@ -244,8 +244,9 @@ func (p *PreTokenizer) tokenizeScan(text string) []PreToken {
 	return result
 }
 
-// scanCl100k returns the end offset of the pre-token starting at at, following
-// the alternatives of cl100kPattern in the order the regex tries them.
+// scanCl100k returns the end offset of the pre-token starting at at. That
+// scanCl100k is following the alternatives of cl100kPattern in the order the
+// regex tries them.
 func scanCl100k(text string, at int) int {
 	r, size := utf8.DecodeRuneInString(text[at:])
 
@@ -256,7 +257,7 @@ func scanCl100k(text string, at int) int {
 		}
 	}
 
-	// [^\r\n\p{L}\p{N}]?\p{L}+ -- a run of letters, which may take one leading
+	// [^\r\n\p{L}\p{N}]?\p{L}+. A run of letters, which may take one leading
 	// character that is neither a line break nor alphanumeric.
 	if unicode.IsLetter(r) {
 		return scanRun(text, at, unicode.IsLetter)
@@ -311,7 +312,7 @@ func scanCl100k(text string, at int) int {
 		return lastBreakEnd
 	}
 
-	// '\s+(?!\S)' keeps the run only while nothing but whitespace follows, so a
+	// '\s+(?!\S)' keeps the run only while nothing but whitespace follows. A
 	// run that runs into a word gives its last character to that word.
 	if runEnd == len(text) {
 		return runEnd

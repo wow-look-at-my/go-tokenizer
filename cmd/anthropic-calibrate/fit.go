@@ -66,7 +66,7 @@ func buildSamples(rows []labelledRow) ([]sample, error) {
 }
 
 // jointWidth is the column count of the joint design matrix: a shared block,
-// then a block covering only the classes the families disagree on, then a
+// then a block covering only the classes the families disagree on. Then a
 // constant that applies to the newer family alone.
 func jointWidth() int {
 	shared := tokenizer.AnthropicFeatureAggregates*tokenizer.AnthropicFeatureClasses + 1

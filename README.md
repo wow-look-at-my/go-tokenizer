@@ -28,7 +28,7 @@ Against [`rohangpta/ctoc`](https://github.com/rohangpta/ctoc), which mined a voc
 | this library | **4.2%** | **4.2%** | 4.7 MB/s |
 | ctoc | 9.9% | 26.5% | **20.1 MB/s** |
 
-ctoc is the faster of the two, by a few times. It matches greedily against a trie, which is less work than BPE merges. It is also a C++ binary. Its accuracy on Claude 5 reflects a vocabulary mined before that tokenizer existed.
+ctoc is the faster of the two, by a few times. It matches greedily against a trie, which is less work than BPE merges. It is also a C++ binary. Its accuracy on a later claude reflects a vocabulary mined before that tokenizer existed.
 
 ## Installation
 

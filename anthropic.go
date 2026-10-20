@@ -41,7 +41,7 @@ const (
 // repeatRunThreshold is the length past which a pre-token of one repeated character is charged from its length alone.
 const repeatRunThreshold = 4
 
-// anthropicFeatures is what the correction is a linear function of: for every
+// anthropicFeatures is what the correction is a linear function of. For every
 // class, how many tokens the embedded BPE spent, how many pre-tokens fell in
 // it, and how many runes those held.
 type anthropicFeatures struct {
@@ -249,7 +249,7 @@ func AnthropicASCIILetterClasses() []int {
 }
 
 // AnthropicFeatureVector exposes the features the fitted correction is a linear
-// function of, flattened in the order the weights are stored and ending in the
+// function of, flattened in the order. The weights are stored and ending in the
 // constant term. A calibration tool fits weights against measured counts with
 // it; the shipped estimator needs no such call.
 func AnthropicFeatureVector(text string) ([]float64, error) {

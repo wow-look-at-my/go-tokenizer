@@ -19,7 +19,7 @@ This is a Go BPE (Byte Pair Encoding) tokenizer library supporting OpenAI's tikt
   - `encodeWithRanks` - tiktoken style, uses token rank as merge priority
   - `encodeWithMerges` - HuggingFace/SentencePiece style, uses explicit merge rules
 - **vocab.go** - Vocabulary loading from tiktoken format (base64 text) or binary format
-- **pretokenizer.go** - Text splitting before BPE. `regexp2` handles an arbitrary pattern. The cl100k pattern takes a hand-written scanner instead, because backtracking dominated the cost of counting. `TestFastScanMatchesRegexp` holds the two to identical output.
+- **pretokenizer.go** - Text splitting before BPE. `regexp2` handles an arbitrary pattern. The cl100k pattern takes a hand-written scanner instead, because backtracking dominated the cost of counting. `TestFastScanMatchesRegexp` holds the two to same output.
 - **encodings.go** - Encoding configs (cl100k_base, p50k_base, o200k_base, gemma, deepseek, claude_4_5, claude_5) with patterns and special tokens
 - **anthropic.go** - Offline estimators for Anthropic's unpublished tokenizers. `claude_4_5` and `claude_5` are separate flavors because measurement found live tokenizers that differ only on ASCII letters. They count and refuse to encode, since no vocabulary exists to give IDs from. See docs/anthropic-estimator.md for the method, the measured error, and how to refit.
 - **deepseek.go / hfclasses.go** - The `deepseek` encoding. Byte-level BPE from DeepSeek's `tokenizer.json`, pre-tokenized by a hand scanner over `hfclasses.ranges`, the Unicode classes of HuggingFace tokenizers. Go's own tables are newer and split some code points differently. See docs/deepseek.md for the verification against HuggingFace and the API.

@@ -14,7 +14,7 @@ $ printf '%s\n' '"Hello World"' '"The quick brown fox"' | go-tokenizer count --b
 
 Blank input lines are skipped.
 
-A line that is not a valid JSON string aborts the run with an error naming the line number. A count that fails aborts the same way. A caller that sent N sections therefore gets N counts, or a loud failure. It never gets a silent gap, which leaves it reading the wrong count against the wrong section.
+A line that is not a valid JSON string aborts the run with an error naming the line number. A count that fails aborts the same way. A caller that sent N sections therefore gets N counts, or a loud failure. It never gets a silent gap, which leaves it reading the incorrect count against the incorrect section.
 
 Batch mode reads standard input only. Positional arguments and `--input` are rejected rather than ignored.
 

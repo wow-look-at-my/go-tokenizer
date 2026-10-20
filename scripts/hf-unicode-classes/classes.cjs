@@ -1,4 +1,4 @@
-// Writes the Unicode classes that HuggingFace tokenizers uses for \p{L}, \p{M}, \p{N}, \p{P}, \p{S} and \s, as hex code point ranges.
+// Writes the Unicode classes that HuggingFace tokenizers uses for \p{L}, \p{M}, \p{N}, \p{P}, \p{S} and \s. As hex code point ranges.
 const { Tokenizer } = require('tokenizers');
 const fs = require('node:fs');
 

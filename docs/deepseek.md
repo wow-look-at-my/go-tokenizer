@@ -18,11 +18,11 @@ DeepSeek V3, V3.2, V4-Pro, V4-Flash and V4.1-Flash share one vocabulary, one mer
 
 ## How it differs from the tiktoken path
 
-Details of the HuggingFace model have no tiktoken equivalent. Each changes token IDs when it is wrong.
+Details of the HuggingFace model have no tiktoken equivalent. Each changes token IDs when it is incorrect.
 
 - **Split steps nest.** Each `Split` runs over every piece the step before it produced. Text between matches stays as its own piece rather than being dropped. A run of characters that no alternative matches therefore forms one piece, and BPE can merge across its code points.
 - **Merges start from bytes.** A byte-level model reaches a token only through its merges. The whole-input lookup that tiktoken uses can skip a split the merges will make, so the byte-level path turns it off.
-- **Equal merges resolve from the left.** When the same pair occurs twice, the leftmost merges first. `"aaa"` is `aa` + `a`, never `a` + `aa`.
+- **Equal merges resolve from the left.** When the same pair occurs twice, the leftmost merges first. `"aaa"` is `aa` + `a`, and never `a` + `aa`.
 - **Added tokens match first, leftmost and longest.** They are matched on their literal text before pre-tokenization. That includes the tokens marked `special: false`, such as `<think>` and `<dsml:`.
 
 ## Unicode classes

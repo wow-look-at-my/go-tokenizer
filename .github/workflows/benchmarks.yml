@@ -4,16 +4,20 @@ on:
   push:
     branches: ["**"]
 
+concurrency:
+  group: gha_${{ github.repository }}_${{ github.workflow }}_${{ github.ref != 'refs/heads/master' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
 jobs:
   benchmark:
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.repository.visibility == 'public' && 'ubuntu-latest' || vars.CI_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Install hf CLI
         run: pip install huggingface_hub[cli]
 
-      - uses: wow-look-at-my/go-toolchain@v1
+      - uses: wow-look-at-my/go-toolchain@lkgb
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         with:

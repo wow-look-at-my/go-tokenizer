@@ -30,7 +30,7 @@ Measurement across the live models found a split that no public writeup records.
 | ` 日本語` | 3 | 3 |
 | `();` | 1 | 1 |
 
-A single flavor is therefore wrong by roughly 60% on English, for whichever family nobody fitted it to. `TestAnthropicFamiliesDisagreeOnASCII` pins the direction of the split.
+A single flavor is therefore incorrect by roughly 60% on English, for whichever family nobody fitted it to. `TestAnthropicFamiliesDisagreeOnASCII` pins the direction of the split.
 
 The message overhead also differs per family. `MessageOverhead` is exposed separately from `CountTokens` because of it. The cost of a text and the cost of a message holding that text are different questions.
 
