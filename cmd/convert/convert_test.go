@@ -18,8 +18,6 @@ import (
 //go:embed hf_min_vocab.json
 var hfMinVocab []byte
 
-// byteLevelJSON is a byte-level tokenizer.json in miniature: specials inside
-// model.vocab, as DeepSeek ships them, and merges in the string spelling.
 //go:embed bytelevel_vocab.json
 var byteLevelJSON []byte
 
@@ -119,8 +117,7 @@ func TestHFMergeBothSpellings(t *testing.T) {
 	assert.Error(t, json.Unmarshal([]byte(`["nospace"]`), &merges))
 	assert.Error(t, json.Unmarshal([]byte(`[["a","b","c"]]`), &merges))
 	assert.Error(t, json.Unmarshal([]byte(`[7]`), &merges))
-	}
-}`
+}
 
 func TestLoadHuggingFaceByteLevelRoundTrip(t *testing.T) {
 	vocab, err := loadHuggingFace(byteLevelJSON)
