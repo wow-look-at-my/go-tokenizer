@@ -14,10 +14,14 @@
 package main
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"os"
 )
+
+//go:embed usage.yml
+var usageText []byte
 
 func main() {
 	if len(os.Args) < 2 {
@@ -44,24 +48,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprint(os.Stderr, `usage: anthropic-calibrate <command> [flags]
-
-  measure -corpus FILE -out FILE [-rate N] [-model-4-5 ID] [-model-5 ID]
-      Ask the token counting API what each corpus sample costs, per family,
-      and write labelled rows. Reads ANTHROPIC_API_KEY. Already-labelled rows
-      in an existing -out file are kept, so an interrupted run resumes.
-
-  fit -counts FILE [-lambda L]
-      Fit the correction against labelled rows and print Go source for
-      anthropic_weights.go. Makes no network call.
-
-  report -counts FILE
-      Score the weights the library currently ships against labelled rows,
-      split into representative text and single-character runs. No network.
-
-A labelled row is a JSON object per line:
-      {"id":..., "category":..., "text":..., "apiCounts":{"claude_5":123}}
-`)
+	fmt.Fprint(os.Stderr, string(usageText))
 }
 
 // labelledRow is a measured sample. The counts are what the API reported for

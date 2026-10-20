@@ -1,0 +1,8 @@
+{
+	"added_tokens": [{"id": 0, "content": "<s>"}, {"id": 5, "content": " thinking"}],
+	"pre_tokenizer": {"type": "Sequence", "pretokenizers": [{"type": "ByteLevel"}]},
+	"model": {
+		"vocab": {"<s>": 0, "a": 1, "b": 2, "Ġ": 3, "ab": 4},
+		"merges": ["a b"]
+	}
+}
