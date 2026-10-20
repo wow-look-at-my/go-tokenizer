@@ -37,9 +37,9 @@ func splitWithScanner(text string) []string {
 }
 
 // scannerCases covers each alternative of the pattern and the boundaries
-// between them: contractions, a leading symbol on a word, digit grouping,
+// between them. It contractions, a leading symbol on a word, digit grouping,
 // symbol runs that swallow trailing line breaks, whitespace that ends in a line
-// break, and a whitespace run that must hand its last character to a word.
+// break. A whitespace run that must hand its last character to a word.
 var scannerCases = []string{
 	"",
 	"a",
@@ -85,8 +85,8 @@ func TestFastScanMatchesRegexp(t *testing.T) {
 }
 
 // TestFastScanMatchesRegexpOnCorpus runs the same contract over the measured
-// corpus, which carries prose, source, structured data and non-Latin scripts at
-// a size the hand-written cases cannot reach.
+// corpus, which carries prose, source, structured data and non-Latin scripts.
+// At a size the hand-written cases cannot reach.
 func TestFastScanMatchesRegexpOnCorpus(t *testing.T) {
 	re, err := regexp2.Compile(cl100kPattern, regexp2.None)
 	require.NoError(t, err)

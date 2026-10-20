@@ -4,15 +4,33 @@ on:
   push:
     branches: ["**"]
 
+concurrency:
+  group: gha_${{ github.repository }}_${{ github.workflow }}_${{ github.ref != 'refs/heads/master' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
+permissions:
+  id-token: write
+  contents: write
+  actions: read
+  checks: read
+  deployments: write
+  artifact-metadata: write
+
 jobs:
   benchmark:
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.repository.visibility == 'public' && 'ubuntu-latest' || vars.CI_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
+      - name: Install hf CLI
+        run: pip install huggingface_hub[cli]
+
+      - uses: wow-look-at-my/go-toolchain@lkgb
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         with:
-          go-version-file: go.mod
+          min-coverage: 0
+          generate: b75093eac10a
 
       - name: Run benchmarks
         run: go test -run=^$ -bench=. -benchmem -count=1 ./... | tee bench-raw.txt

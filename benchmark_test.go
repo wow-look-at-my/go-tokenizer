@@ -364,14 +364,19 @@ func BenchmarkEncodeCacheWarm(b *testing.B) {
 }
 
 func BenchmarkEncodeCacheCold(b *testing.B) {
-	text := englishProse(1_000)
-
 	// Loading a vocabulary costs tens of milliseconds.
 	warm, err := New()
 	require.Nil(b, err)
 	shared := warm.(*tokenizer)
 
-	b.SetBytes(int64(len(text)))
+	// Pre-generate unique texts to avoid cache hits
+	const numTexts = 10000
+	texts := make([]string, numTexts)
+	for i := range texts {
+		texts[i] = fmt.Sprintf("%s unique%d", englishProse(1_000), i)
+	}
+
+	b.SetBytes(int64(len(texts[0])))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
@@ -379,7 +384,7 @@ func BenchmarkEncodeCacheCold(b *testing.B) {
 		require.Nil(b, err)
 
 		b.StartTimer()
-		_, _ = cold.Encode(text)
+		_, _ = cold.Encode(texts[i%numTexts])
 	}
 }
 

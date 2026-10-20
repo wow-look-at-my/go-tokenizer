@@ -34,7 +34,7 @@ var anthropicOverheadByFamily = map[AnthropicFamily]int{
 //
 // Both families were fitted together against one design matrix. Every class
 // outside runs of ASCII letters shares a single set of weights, because measured
-// counts are identical there; only the ASCII-letter classes carry a per-family
+// counts are identical there. Only the ASCII-letter classes carry a per-family
 // difference. That sharing is why the family with far fewer measurements still
 // prices Han, Cyrillic, digits, and punctuation as accurately as the other.
 var anthropicWeightsByFamily = map[AnthropicFamily]anthropicWeights{

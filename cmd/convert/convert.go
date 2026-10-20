@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"os"
 	"sort"
 	"sync"
 )
@@ -29,7 +28,7 @@ func writeVarint(buf *bytes.Buffer, val uint32) {
 }
 
 func WriteBinary(v *Vocab, out io.Writer) error {
-	fmt.Fprintf(os.Stderr, "Grouping %d tokens by length...\n", len(v.Tokens))
+	fmt.Printf("Grouping %d tokens by length...\n", len(v.Tokens))
 
 	byLength := make(map[int][]struct {
 		token []byte
@@ -49,7 +48,7 @@ func WriteBinary(v *Vocab, out io.Writer) error {
 		lengths = append(lengths, l)
 	}
 	sort.Ints(lengths)
-	fmt.Fprintf(os.Stderr, "Found %d length groups\n", len(lengths))
+	fmt.Printf("Found %d length groups\n", len(lengths))
 
 	// Parallel encode each length group
 	buffers := make([]*bytes.Buffer, len(lengths))
@@ -89,7 +88,7 @@ func WriteBinary(v *Vocab, out io.Writer) error {
 	}
 
 	// Merges (also delta-varint)
-	fmt.Fprintf(os.Stderr, "Writing %d merges...\n", len(v.Merges))
+	fmt.Printf("Writing %d merges...\n", len(v.Merges))
 	mergeBuf := &bytes.Buffer{}
 	writeVarint(mergeBuf, uint32(len(v.Merges)))
 	for _, merge := range v.Merges {
@@ -113,6 +112,6 @@ func WriteBinary(v *Vocab, out io.Writer) error {
 	}
 	out.Write(addedBuf.Bytes())
 
-	fmt.Fprintf(os.Stderr, "Done! Wrote %d vocab entries, %d merges, %d added tokens\n", len(v.Tokens), len(v.Merges), len(added))
+	fmt.Printf("Done! Wrote %d vocab entries, %d merges, %d added tokens\n", len(v.Tokens), len(v.Merges), len(added))
 	return nil
 }

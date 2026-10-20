@@ -37,15 +37,14 @@ func (b *BPE) Encode(input []byte) []int {
 // unmergeable is the rank of a pair the vocabulary does not hold.
 const unmergeable = int(^uint(0) >> 1)
 
-// mergeByRanks applies the tiktoken merge rule to one pre-token: repeatedly
-// merge the adjacent pair with the lowest rank until no pair is in the
-// vocabulary. It returns the piece boundaries, where piece k covers
-// input[bounds[k]:bounds[k+1]], so a caller can count them or resolve them to
+// mergeByRanks applies the tiktoken merge rule to one pre-token. It
+// repeatedly merge the adjacent pair with the lowest rank until no pair is in
+// the vocabulary. It returns the piece boundaries, where piece k covers
+// input[bounds[k]:bounds[k+1]]. A caller can count them or resolve them to
 // IDs without the merge loop having to build either.
 //
 // Boundaries are offsets rather than byte slices, so no candidate pair is ever
-// copied to be looked up, and only both ranks a merge invalidates are
-// recomputed.
+// copied to be looked up. Only both ranks a merge invalidates are recomputed.
 func (b *BPE) mergeByRanks(input []byte) []int {
 	bounds := make([]int, len(input)+1)
 	for i := range bounds {
