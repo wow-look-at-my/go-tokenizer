@@ -3,6 +3,9 @@ package main
 import (
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFmtTime(t *testing.T) {
@@ -17,10 +20,7 @@ func TestFmtTime(t *testing.T) {
 		{90000000000, "1.5 min"},
 	}
 	for _, tc := range tests {
-		got := fmtTime(tc.ns)
-		if got != tc.want {
-			t.Errorf("fmtTime(%v) = %q, want %q", tc.ns, got, tc.want)
-		}
+		assert.Equal(t, tc.want, fmtTime(tc.ns))
 	}
 }
 
@@ -35,10 +35,7 @@ func TestEscXML(t *testing.T) {
 		{"<>&", "&lt;&gt;&amp;"},
 	}
 	for _, tc := range tests {
-		got := escXML(tc.in)
-		if got != tc.want {
-			t.Errorf("escXML(%q) = %q, want %q", tc.in, got, tc.want)
-		}
+		assert.Equal(t, tc.want, escXML(tc.in))
 	}
 }
 
@@ -49,18 +46,10 @@ func TestRenderSVG(t *testing.T) {
 	}
 	svg := renderSVG(results)
 
-	if !strings.HasPrefix(svg, "<svg") {
-		t.Error("SVG should start with <svg")
-	}
-	if !strings.HasSuffix(svg, "</svg>\n") {
-		t.Error("SVG should end with </svg>")
-	}
-	if !strings.Contains(svg, "Test1") {
-		t.Error("SVG should contain Test1")
-	}
-	if !strings.Contains(svg, "Test2") {
-		t.Error("SVG should contain Test2")
-	}
+	assert.True(t, strings.HasPrefix(svg, "<svg"), "SVG should start with <svg")
+	assert.True(t, strings.HasSuffix(svg, "</svg>\n"), "SVG should end with </svg>")
+	assert.Contains(t, svg, "Test1")
+	assert.Contains(t, svg, "Test2")
 }
 
 func TestBenchLineRegex(t *testing.T) {
@@ -74,15 +63,8 @@ func TestBenchLineRegex(t *testing.T) {
 	}
 	for _, tc := range tests {
 		m := benchLine.FindStringSubmatch(tc.line)
-		if m == nil {
-			t.Errorf("benchLine should match %q", tc.line)
-			continue
-		}
-		if m[1] != tc.name {
-			t.Errorf("name = %q, want %q", m[1], tc.name)
-		}
-		if m[2] != tc.ns {
-			t.Errorf("ns = %q, want %q", m[2], tc.ns)
-		}
+		require.NotNil(t, m, "benchLine should match %q", tc.line)
+		assert.Equal(t, tc.name, m[1])
+		assert.Equal(t, tc.ns, m[2])
 	}
 }

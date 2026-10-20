@@ -58,27 +58,17 @@ func TestLoadTiktoken(t *testing.T) {
 	tmp := filepath.Join(t.TempDir(), "test.tiktoken")
 	// "hello" in base64 is "aGVsbG8="
 	content := "aGVsbG8= 0\nd29ybGQ= 1\n" // hello=0, world=1
-	if err := os.WriteFile(tmp, []byte(content), 0644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(tmp, []byte(content), 0644))
 
 	v, err := loadTiktoken(tmp)
-	if err != nil {
-		t.Fatalf("loadTiktoken: %v", err)
-	}
-	if v.Tokens["hello"] != 0 {
-		t.Errorf("hello = %d, want 0", v.Tokens["hello"])
-	}
-	if v.Tokens["world"] != 1 {
-		t.Errorf("world = %d, want 1", v.Tokens["world"])
-	}
+	require.NoError(t, err)
+	assert.Equal(t, uint32(0), v.Tokens["hello"])
+	assert.Equal(t, uint32(1), v.Tokens["world"])
 }
 
 func TestLoadTiktokenNotFound(t *testing.T) {
 	_, err := loadTiktoken("/nonexistent/file.tiktoken")
-	if err == nil {
-		t.Error("expected error for nonexistent file")
-	}
+	require.Error(t, err)
 }
 
 func TestLoadHuggingFace(t *testing.T) {
@@ -90,32 +80,20 @@ func TestLoadHuggingFace(t *testing.T) {
 	}`)
 
 	v, err := loadHuggingFace(content)
-	if err != nil {
-		t.Fatalf("loadHuggingFace: %v", err)
-	}
-	if v.Tokens["a"] != 0 {
-		t.Errorf("a = %d, want 0", v.Tokens["a"])
-	}
-	if v.Tokens["ab"] != 2 {
-		t.Errorf("ab = %d, want 2", v.Tokens["ab"])
-	}
-	if len(v.Merges) != 1 {
-		t.Errorf("len(Merges) = %d, want 1", len(v.Merges))
-	}
+	require.NoError(t, err)
+	assert.Equal(t, uint32(0), v.Tokens["a"])
+	assert.Equal(t, uint32(2), v.Tokens["ab"])
+	assert.Len(t, v.Merges, 1)
 }
 
 func TestLoadJSONNotFound(t *testing.T) {
 	_, err := loadJSON("/nonexistent/tokenizer.json")
-	if err == nil {
-		t.Error("expected error for nonexistent file")
-	}
+	require.Error(t, err)
 }
 
 func TestLoadHuggingFaceInvalid(t *testing.T) {
 	_, err := loadHuggingFace([]byte("not json"))
-	if err == nil {
-		t.Error("expected error for invalid JSON")
-	}
+	require.Error(t, err)
 }
 
 func TestByteLevelDecode(t *testing.T) {
